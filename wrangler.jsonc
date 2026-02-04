@@ -2,7 +2,7 @@
   "name": "budget-control",
   "compatibility_date": "2026-02-04",
   "assets": {
-    "directory": "./" // 告訴系統 HTML 檔案就在根目錄
+    "directory": "./"
   },
   "d1_databases": [
     {
