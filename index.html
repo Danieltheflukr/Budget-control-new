@@ -3,30 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>雲端多人協作記帳本</title>
+  <title>DanJacky家協作記帳本</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+    body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+  </style>
 </head>
-<body class="bg-slate-50 p-4">
-  <div id="app" class="max-w-md mx-auto space-y-4">
-    <div id="list-container" class="space-y-2">載入中...</div>
+<body class="p-4 custom-scroll">
+  <div id="app" class="max-w-md mx-auto space-y-4 pb-24">
+    
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-4">
+        <h1 class="text-xl font-bold text-slate-800">📊 雲端協作記帳</h1>
+        <button onclick="exportToCSV()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg font-bold">匯出 CSV</button>
+      </div>
+      <div class="space-y-2">
+        <div class="flex justify-between text-xs font-bold text-slate-500">
+          <span>本月預算進度 (<span id="total-exp-text">$0</span>)</span>
+          <span id="budget-percent-text">0%</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+          <div id="budget-bar" class="h-full bg-emerald-500 transition-all duration-700" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+      <h3 class="text-sm font-bold text-slate-700 mb-3">支出分類分析</h3>
+      <div class="h-48 flex justify-center">
+        <canvas id="expenseChart"></canvas>
+      </div>
+    </div>
+
+    <div class="flex gap-2">
+      <input type="text" id="searchInput" oninput="render()" placeholder="🔍 搜尋描述或成員..." 
+             class="flex-1 bg-white border-none rounded-xl p-3 text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+    </div>
+
+    <div id="list-container" class="space-y-2">
+      <p class="text-center text-slate-400 py-10">資料載入中...</p>
+    </div>
+
+    <div class="fixed bottom-6 left-0 right-0 px-4">
+      <button onclick="toggleForm()" class="max-w-md mx-auto w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl hover:bg-indigo-700 transition-all active:scale-95 flex justify-center items-center gap-2">
+        <span>+ 新增帳目</span>
+      </button>
+    </div>
+
+    <div id="form-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+      <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+        <h2 class="text-lg font-bold mb-4 text-slate-800">記一筆帳</h2>
+        <form onsubmit="addRecord(event)" class="space-y-4">
+          <div class="grid grid-cols-2 gap-2">
+            <select id="type" class="bg-slate-50 border-none rounded-xl p-3 text-sm outline-none">
+              <option value="支出">💸 支出</option>
+              <option value="收入">💰 收入</option>
+            </select>
+            <select id="member-select" class="bg-slate-50 border-none rounded-xl p-3 text-sm outline-none">
+              <option value="Daniel">Daniel</option>
+              <option value="Jacky">Jacky</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <select id="category" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm outline-none">
+            <option value="飲食">🍜 飲食</option>
+            <option value="交通">🚗 交通</option>
+            <option value="購物">🛍️ 購物</option>
+            <option value="住宅">🏠 住宅</option>
+            <option value="娛樂">🎮 娛樂</option>
+            <option value="其他">📦 其他</option>
+          </select>
+          <input id="desc" type="text" placeholder="描述（如：午餐、加油）" required class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm outline-none">
+          <input id="amount" type="number" step="0.01" placeholder="金額" required class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm outline-none">
+          <div class="flex gap-2 pt-2">
+            <button type="button" onclick="toggleForm()" class="flex-1 py-3 bg-slate-100 rounded-xl text-sm font-bold text-slate-500">取消</button>
+            <button type="submit" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold">確認儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script>
     let state = { records: [], budget: 15000 };
+    let myChart = null;
 
-    // --- 核心：從雲端獲取資料 ---
+    // --- 1. 雲端資料交換 ---
     async function loadData() {
       try {
         const res = await fetch('/api/records');
+        if (!res.ok) throw new Error("API 錯誤");
         state.records = await res.json();
         render();
       } catch (err) {
-        console.error("雲端載入失敗:", err);
+        document.getElementById('list-container').innerHTML = `<p class="text-center text-red-400 py-10">無法連接雲端 D1</p>`;
       }
     }
 
-    // --- 核心：新增資料到雲端 ---
     async function addRecord(e) {
       e.preventDefault();
       const newRecord = {
@@ -34,7 +111,8 @@
         type: document.getElementById('type').value,
         category: document.getElementById('category').value,
         description: document.getElementById('desc').value,
-        amount: parseFloat(document.getElementById('amount').value)
+        amount: parseFloat(document.getElementById('amount').value),
+        member: document.getElementById('member-select').value
       };
 
       await fetch('/api/records', {
@@ -43,21 +121,98 @@
         body: JSON.stringify(newRecord)
       });
       
-      loadData(); // 重新整理列表
-      toggleForm(); // 關閉視窗
+      toggleForm();
+      loadData();
     }
 
-    // --- 核心：從雲端刪除 ---
     async function deleteRecord(id) {
-      if (!confirm("確定要刪除這筆雲端紀錄嗎？")) return;
+      if (!confirm("確定要從雲端刪除嗎？")) return;
       await fetch(`/api/records?id=${id}`, { method: 'DELETE' });
       loadData();
     }
 
-    // 初次載入
-    window.onload = loadData;
+    // --- 2. 介面渲染邏輯 ---
+    function render() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      const list = document.getElementById('list-container');
+      
+      const filtered = state.records.filter(r => 
+        r.description.toLowerCase().includes(searchTerm) || 
+        r.member.toLowerCase().includes(searchTerm)
+      );
 
-    // ... (其餘 UI 渲染邏輯 render() 與 updateChart() 與之前相同) ...
+      if (filtered.length === 0) {
+        list.innerHTML = `<p class="text-center text-slate-400 py-10">尚無符合的紀錄</p>`;
+      } else {
+        list.innerHTML = filtered.map(r => `
+          <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-white">
+            <div class="flex gap-3 items-center">
+              <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-xl">
+                ${r.type === '收入' ? '💰' : '💸'}
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-700">${r.description}</p>
+                <p class="text-[10px] text-slate-400 font-medium">${r.category} · ${r.member} · ${new Date(r.created_at).toLocaleDateString()}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="font-bold ${r.type === '收入' ? 'text-emerald-500' : 'text-slate-700'}">
+                ${r.type === '收入' ? '+' : '-'}$${r.amount.toLocaleString()}
+              </p>
+              <button onclick="deleteRecord('${r.record_id}')" class="text-[10px] text-red-300 hover:text-red-500">刪除</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      updateStatistics();
+    }
+
+    // --- 3. 統計與圖表更新 ---
+    function updateStatistics() {
+      const expenses = state.records.filter(r => r.type === '支出');
+      const totalExp = expenses.reduce((a, b) => a + b.amount, 0);
+      
+      // 更新預算條
+      const percent = Math.min((totalExp / state.budget) * 100, 100);
+      document.getElementById('budget-bar').style.width = percent + '%';
+      document.getElementById('budget-percent-text').textContent = Math.round(percent) + '%';
+      document.getElementById('total-exp-text').textContent = '$' + totalExp.toLocaleString();
+      document.getElementById('budget-bar').className = `h-full transition-all duration-700 ${percent > 90 ? 'bg-red-500' : 'bg-emerald-500'}`;
+
+      // 更新圓餅圖
+      const cats = {};
+      expenses.forEach(r => cats[r.category] = (cats[r.category] || 0) + r.amount);
+      const ctx = document.getElementById('expenseChart').getContext('2d');
+      if (myChart) myChart.destroy();
+      myChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(cats),
+          datasets: [{
+            data: Object.values(cats),
+            backgroundColor: ['#6366f1', '#f43f5e', '#fbbf24', '#10b981', '#8b5cf6', '#94a3b8'],
+            borderWidth: 0
+          }]
+        },
+        options: { cutout: '70%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+      });
+    }
+
+    // --- 4. 輔助功能 ---
+    function toggleForm() { document.getElementById('form-modal').classList.toggle('hidden'); }
+
+    function exportToCSV() {
+      const headers = "日期,類型,分類,成員,描述,金額\n";
+      const rows = state.records.map(r => `${r.created_at},${r.type},${r.category},${r.member},${r.description},${r.amount}`).join("\n");
+      const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `雲端記帳本_${new Date().toLocaleDateString()}.csv`;
+      link.click();
+    }
+
+    window.onload = loadData;
   </script>
 </body>
 </html>
