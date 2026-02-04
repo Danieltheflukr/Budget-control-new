@@ -1,0 +1,14 @@
+{
+  "name": "budget-control",
+  "compatibility_date": "2026-02-04",
+  "assets": {
+    "directory": "./" // 告訴系統 HTML 檔案就在根目錄
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "monthly_expenses",
+      "database_id": "a82ceab8-cd97-41ea-91d6-736ed66e68e7"
+    }
+  ]
+}
