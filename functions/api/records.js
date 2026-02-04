@@ -1,22 +1,22 @@
 export async function onRequest(context) {
   const { request, env } = context;
+  const url = new URL(request.url);
   const method = request.method;
 
   try {
-    // GET: 從 D1 讀取資料
+    // GET: 從 D1 抓取資料
     if (method === "GET") {
       const { results } = await env.DB.prepare(
-        "SELECT * FROM records ORDER BY created_at DESC"
+        "SELECT * FROM records ORDER BY created_at DESC LIMIT 100"
       ).all();
       return Response.json(results);
     }
 
-    // POST: 將資料寫入 D1
+    // POST: 將資料存入 D1
     if (method === "POST") {
       const data = await request.json();
       const { record_id, type, category, description, amount, member } = data;
       
-      // 注意：這裡的欄位順序要跟 SQL INSERT 完全一致
       await env.DB.prepare(
         "INSERT INTO records (record_id, type, category, description, amount, member) VALUES (?, ?, ?, ?, ?, ?)"
       ).bind(record_id, type, category, description, amount, member).run();
@@ -26,7 +26,6 @@ export async function onRequest(context) {
 
     // DELETE: 根據 record_id 刪除
     if (method === "DELETE") {
-      const url = new URL(request.url);
       const id = url.searchParams.get('id');
       if (!id) return Response.json({ error: "Missing ID" }, { status: 400 });
 
@@ -34,6 +33,7 @@ export async function onRequest(context) {
       return Response.json({ success: true });
     }
 
+    return new Response("Method Not Allowed", { status: 405 });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
