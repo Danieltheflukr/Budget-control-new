@@ -1,12 +1,63 @@
-
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>Welcome to MingleeDan</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>雲端多人協作記帳本</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <h1>Welcome to MingleeDan Cloudflare Access</h1>
-    <p>This is the homepage for our secure access platform using Cloudflare Zero Trust.</p>
+<body class="bg-slate-50 p-4">
+  <div id="app" class="max-w-md mx-auto space-y-4">
+    <div id="list-container" class="space-y-2">載入中...</div>
+  </div>
+
+  <script>
+    let state = { records: [], budget: 15000 };
+
+    // --- 核心：從雲端獲取資料 ---
+    async function loadData() {
+      try {
+        const res = await fetch('/api/records');
+        state.records = await res.json();
+        render();
+      } catch (err) {
+        console.error("雲端載入失敗:", err);
+      }
+    }
+
+    // --- 核心：新增資料到雲端 ---
+    async function addRecord(e) {
+      e.preventDefault();
+      const newRecord = {
+        record_id: Date.now().toString(),
+        type: document.getElementById('type').value,
+        category: document.getElementById('category').value,
+        description: document.getElementById('desc').value,
+        amount: parseFloat(document.getElementById('amount').value)
+      };
+
+      await fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRecord)
+      });
+      
+      loadData(); // 重新整理列表
+      toggleForm(); // 關閉視窗
+    }
+
+    // --- 核心：從雲端刪除 ---
+    async function deleteRecord(id) {
+      if (!confirm("確定要刪除這筆雲端紀錄嗎？")) return;
+      await fetch(`/api/records?id=${id}`, { method: 'DELETE' });
+      loadData();
+    }
+
+    // 初次載入
+    window.onload = loadData;
+
+    // ... (其餘 UI 渲染邏輯 render() 與 updateChart() 與之前相同) ...
+  </script>
 </body>
 </html>
