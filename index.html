@@ -30,6 +30,14 @@
       </div>
     </div>
 
+    <!-- Settlement Card -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200" id="settlement-card">
+       <h2 class="text-sm font-bold text-slate-700 mb-2">💰 結算中心 (誰該給誰錢)</h2>
+       <div id="settlement-list" class="text-xs space-y-1 text-slate-600">
+         載入中...
+       </div>
+    </div>
+
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
       <div class="h-48 flex justify-center"><canvas id="expenseChart"></canvas></div>
     </div>
@@ -45,7 +53,9 @@
         <form onsubmit="addRecord(event)" class="space-y-4">
           <div class="grid grid-cols-2 gap-2">
             <select id="type" class="bg-slate-50 border-none rounded-xl p-3 text-sm"><option value="支出">💸 支出</option><option value="收入">💰 收入</option></select>
-            <select id="member-select" class="bg-slate-50 border-none rounded-xl p-3 text-sm"><option value="Daniel">Daniel</option><option value="Jacky">Jacky</option></select>
+            <select id="member-select" class="bg-slate-50 border-none rounded-xl p-3 text-sm">
+                <option value="">選擇成員...</option>
+            </select>
           </div>
           <select id="category" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm"><option value="飲食">🍜 飲食</option><option value="交通">🚗 交通</option><option value="購物">🛍️ 購物</option><option value="住宅">🏠 住宅</option><option value="娛樂">🎮 娛樂</option></select>
           <input id="desc" type="text" placeholder="項目描述" required class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm outline-none">
@@ -60,29 +70,78 @@
   </div>
 
   <script>
-    let state = { records: [], budget: 15000 };
+    let state = { records: [], members: [], settlement: null, stats: [], budget: 15000 };
     let myChart = null;
 
     async function loadData() {
       try {
-        const res = await fetch('/api/records');
-        state.records = await res.json();
+        const [recordsRes, membersRes, settlementRes, statsRes] = await Promise.all([
+            fetch('/api/records'),
+            fetch('/api/members'),
+            fetch('/api/settlement'),
+            fetch('/api/stats')
+        ]);
+
+        state.records = await recordsRes.json();
+        state.members = await membersRes.json();
+        state.settlement = await settlementRes.json();
+        state.stats = await statsRes.json();
+
         render();
+        renderSettlement();
+        renderMembers();
       } catch (err) {
         document.getElementById('list-container').innerHTML = `<p class="text-center text-red-400 py-10">無法連接 D1: ${err.message}</p>`;
       }
     }
 
+    function renderMembers() {
+        const select = document.getElementById('member-select');
+        select.innerHTML = state.members.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+        if (state.members.length === 0) {
+             select.innerHTML = '<option value="Daniel">Daniel</option><option value="Jacky">Jacky</option>';
+        }
+    }
+
+    function renderSettlement() {
+        const container = document.getElementById('settlement-list');
+        if (!state.settlement || !state.settlement.balances) {
+            container.innerHTML = '無資料';
+            return;
+        }
+
+        const balances = state.settlement.balances;
+        if (balances.length === 0) {
+             container.innerHTML = '無成員資料';
+             return;
+        }
+
+        container.innerHTML = balances.map(b => {
+            const bal = parseFloat(b.balance);
+            const color = bal >= 0 ? 'text-emerald-500' : 'text-red-500';
+            const text = bal >= 0 ? `應收 $${bal.toFixed(0)}` : `應付 $${Math.abs(bal).toFixed(0)}`;
+            return `<div class="flex justify-between"><span>${b.name}</span><span class="${color} font-bold">${text}</span></div>`;
+        }).join('');
+    }
+
     async function addRecord(e) {
       e.preventDefault();
+
+      const memberSelect = document.getElementById('member-select');
+      const selectedMemberId = memberSelect.value;
+      const selectedMemberName = memberSelect.options[memberSelect.selectedIndex].text;
+
       const newRecord = {
         record_id: Date.now().toString(),
         type: document.getElementById('type').value,
         category: document.getElementById('category').value,
         description: document.getElementById('desc').value,
         amount: parseFloat(document.getElementById('amount').value),
-        member: document.getElementById('member-select').value
+        payer_id: selectedMemberId,
+        member: selectedMemberName,
+        group_id: 'group_default'
       };
+
       await fetch('/api/records', { method: 'POST', body: JSON.stringify(newRecord) });
       toggleForm();
       loadData();
@@ -114,15 +173,38 @@
       document.getElementById('budget-percent-text').textContent = Math.round(percent) + '%';
       document.getElementById('total-exp-text').textContent = '$' + totalExp;
 
-      const cats = {};
-      state.records.filter(r => r.type === '支出').forEach(r => cats[r.category] = (cats[r.category] || 0) + r.amount);
+      let labels = [];
+      let data = [];
+
+      if (state.stats && state.stats.length > 0) {
+          labels = state.stats.map(s => s.category);
+          data = state.stats.map(s => s.value);
+      } else {
+          const cats = {};
+          state.records.filter(r => r.type === '支出').forEach(r => cats[r.category] = (cats[r.category] || 0) + r.amount);
+          labels = Object.keys(cats);
+          data = Object.values(cats);
+      }
+
       const ctx = document.getElementById('expenseChart').getContext('2d');
       if (myChart) myChart.destroy();
-      myChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(cats), datasets: [{ data: Object.values(cats), backgroundColor: ['#6366f1', '#f43f5e', '#fbbf24', '#10b981'] }] }, options: { plugins: { legend: { position: 'bottom' } } } });
+      myChart = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: ['#6366f1', '#f43f5e', '#fbbf24', '#10b981', '#8b5cf6'] }] }, options: { plugins: { legend: { position: 'bottom' } } } });
     }
 
     function toggleForm() { document.getElementById('form-modal').classList.toggle('hidden'); }
-    function exportToCSV() { /* 同前述邏輯 */ }
+    function exportToCSV() {
+       const rows = [['Date', 'Type', 'Category', 'Description', 'Amount', 'Member']];
+       state.records.forEach(r => {
+           rows.push([r.date || '', r.type, r.category, r.description, r.amount, r.member]);
+       });
+       let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+       const encodedUri = encodeURI(csvContent);
+       const link = document.createElement("a");
+       link.setAttribute("href", encodedUri);
+       link.setAttribute("download", "transactions.csv");
+       document.body.appendChild(link);
+       link.click();
+    }
     window.onload = loadData;
   </script>
 </body>
