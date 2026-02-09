@@ -47,10 +47,15 @@ async function loadMembers() {
         const members = await res.json();
         const select = document.getElementById('payerSelect');
         if (members.length) {
+            // Keep hardcoded options if API returns empty, otherwise overwrite
+            // Actually, we should probably just ensure Daniel and Jacky are there.
+            // But if the user adds custom members later, we want them.
+            // For now, let's just overwrite if we got data.
             select.innerHTML = members.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
         }
     } catch (e) {
         console.error("Failed to load members", e);
+        // Fallback: options are already hardcoded in HTML
     }
 }
 
