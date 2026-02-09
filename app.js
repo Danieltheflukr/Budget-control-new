@@ -34,3 +34,28 @@ records.forEach(r => {
     card.appendChild(deleteBtn);
     list.appendChild(card);
 });
+// 通用的安全元素建立工具
+function createSafeElement(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text; // 確保 XSS 安全
+    return el;
+}
+
+// 應用在您的 loadRecords 循環中
+function renderMember(b) {
+    const card = createSafeElement('div', 'flex items-center justify-between p-4 bg-white/10 rounded-lg');
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.appendChild(createSafeElement('p', 'text-white font-medium', b.name));
+    infoDiv.appendChild(createSafeElement('p', 'text-gray-400 text-xs', `狀態: ${b.paid ? '已支付' : '未支付'}`));
+    
+    const balanceDiv = createSafeElement('div', 'text-right');
+    const balanceText = createSafeElement('p', b.balance >= 0 ? 'text-green-400' : 'text-red-400', `$${b.balance}`);
+    balanceDiv.appendChild(balanceText);
+    
+    card.appendChild(infoDiv);
+    card.appendChild(balanceDiv);
+    
+    return card;
+}
