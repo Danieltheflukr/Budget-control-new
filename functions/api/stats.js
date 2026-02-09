@@ -1,16 +1,22 @@
 export async function onRequest(context) {
-  const { env } = context;
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const groupId = url.searchParams.get('group_id') || 'group_default';
+
   try {
-    // Group by category for current month (based on UTC 'now')
+    // Group by category for current month
     // Filter for '支出' only
     const stats = await env.DB.prepare(`
       SELECT category, SUM(amount) as value
       FROM records
-      WHERE type = '支出' AND strftime('%m', date) = strftime('%m', 'now')
+      WHERE group_id = ?
+        AND type = '支出'
+        AND date >= date('now', 'start of month')
+        AND date < date('now', 'start of month', '+1 month')
       GROUP BY category
-    `).all();
+      ORDER BY value DESC
+    `).bind(groupId).all();
 
-    // Ensure we return an array
     return Response.json(stats.results || []);
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
