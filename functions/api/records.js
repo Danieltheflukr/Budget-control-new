@@ -1,4 +1,5 @@
 import { verifyGroupAccess } from "../_auth.js";
+import { EXPENSE_TYPE, INCOME_TYPE } from "../_constants.js";
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -12,7 +13,7 @@ export async function onRequest(context) {
     }
 
     if (method === "GET") {
-      // Authorization Check
+      // Authorization Check (From security branch)
       if (!await verifyGroupAccess(request, env, groupId)) {
         return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
       }
@@ -54,12 +55,16 @@ export async function onRequest(context) {
       const group_id = String(body.group_id || groupId).trim();
       const date = String(body.date || new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
 
-      // Authorization Check
+      // Authorization Check (From security branch)
       if (!await verifyGroupAccess(request, env, group_id)) {
         return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
       }
 
-      if (!["支出", "收入"].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
+      // Validation using Constants (From main branch)
+      if (![EXPENSE_TYPE, INCOME_TYPE].includes(type)) {
+          return Response.json({ error: "Invalid type" }, { status: 400 });
+      }
+
       if (!category) return Response.json({ error: "Missing category" }, { status: 400 });
       if (!description) return Response.json({ error: "Missing description" }, { status: 400 });
       if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: "Invalid amount" }, { status: 400 });
@@ -93,7 +98,7 @@ export async function onRequest(context) {
       const id = url.searchParams.get("id");
       if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
 
-      // Authorization Check
+      // Authorization Check (From security branch)
       if (!await verifyGroupAccess(request, env, groupId)) {
         return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
       }
@@ -107,6 +112,7 @@ export async function onRequest(context) {
 
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   } catch (err) {
+    console.error(err);
     return Response.json({ error: err.message }, { status: 500 });
   }
 }

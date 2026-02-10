@@ -1,4 +1,5 @@
 import { verifyGroupAccess } from "../_auth.js";
+import { EXPENSE_TYPE } from "../_constants.js";
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -11,17 +12,19 @@ export async function onRequest(context) {
     }
 
     // Authorization Check
+    // This requires verifyGroupAccess from ../_auth.js
     if (!await verifyGroupAccess(request, env, groupId)) {
       return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
     }
 
-    // 1. Calculate total paid per person for "Expense" (支出)
+    // 1. Calculate total paid per person for "Expense"
+    // This requires EXPENSE_TYPE from ../_constants.js
     const paidResults = await env.DB.prepare(`
       SELECT payer_id, SUM(amount) as total_paid
       FROM records
-      WHERE group_id = ? AND type = '支出'
+      WHERE group_id = ? AND type = ?
       GROUP BY payer_id
-    `).bind(groupId).all();
+    `).bind(groupId, EXPENSE_TYPE).all();
 
     // 2. Get all members of the group
     const members = await env.DB.prepare(`SELECT id, name FROM members WHERE group_id = ?`).bind(groupId).all();
