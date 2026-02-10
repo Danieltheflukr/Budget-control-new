@@ -90,6 +90,7 @@ export async function onRequest(context) {
 
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   } catch (err) {
+    console.error(err);
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
