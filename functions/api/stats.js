@@ -1,3 +1,5 @@
+import { EXPENSE_TYPE } from "../_constants.js";
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -10,12 +12,12 @@ export async function onRequest(context) {
       SELECT category, SUM(amount) as value
       FROM records
       WHERE group_id = ?
-        AND type = '支出'
+        AND type = ?
         AND date >= date('now', 'start of month')
         AND date < date('now', 'start of month', '+1 month')
       GROUP BY category
       ORDER BY value DESC
-    `).bind(groupId).all();
+    `).bind(groupId, EXPENSE_TYPE).all();
 
     return Response.json(stats.results || []);
   } catch (err) {
