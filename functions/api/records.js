@@ -1,3 +1,5 @@
+import { sendTelegramNotification } from "../_utils.js";
+
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -67,12 +69,8 @@ export async function onRequest(context) {
       ).bind(record_id, type, category, description, amount, payer_id, group_id, date).run();
       
       // Send Telegram notification if configured
-      if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
-        const msg = `New Record:\nType: ${type}\nCategory: ${category}\nDescription: ${description}\nAmount: ${amount}\nPayer: ${payer_id}\nDate: ${date}`;
-        const tgUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${env.TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msg)}`;
-        // Fire and forget
-        fetch(tgUrl).catch(console.error);
-      }
+      const msg = `New Record:\nType: ${type}\nCategory: ${category}\nDescription: ${description}\nAmount: ${amount}\nPayer: ${payer_id}\nDate: ${date}`;
+      sendTelegramNotification(env, msg);
 
       return Response.json({ success: true, record_id }, { status: 201 });
     }
