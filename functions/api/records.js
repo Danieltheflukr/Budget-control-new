@@ -1,3 +1,5 @@
+import { verifyGroupAccess } from "../_auth.js";
+
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -10,6 +12,11 @@ export async function onRequest(context) {
     }
 
     if (method === "GET") {
+      // Authorization Check
+      if (!await verifyGroupAccess(request, env, groupId)) {
+        return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+      }
+
       const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 100), 1), 500);
 
       // records + join members to get payer name
@@ -47,6 +54,11 @@ export async function onRequest(context) {
       const group_id = String(body.group_id || groupId).trim();
       const date = String(body.date || new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
 
+      // Authorization Check
+      if (!await verifyGroupAccess(request, env, group_id)) {
+        return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+      }
+
       if (!["支出", "收入"].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
       if (!category) return Response.json({ error: "Missing category" }, { status: 400 });
       if (!description) return Response.json({ error: "Missing description" }, { status: 400 });
@@ -80,6 +92,11 @@ export async function onRequest(context) {
     if (method === "DELETE") {
       const id = url.searchParams.get("id");
       if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
+
+      // Authorization Check
+      if (!await verifyGroupAccess(request, env, groupId)) {
+        return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+      }
 
       await env.DB.prepare("DELETE FROM records WHERE record_id = ? AND group_id = ?")
         .bind(id, groupId)

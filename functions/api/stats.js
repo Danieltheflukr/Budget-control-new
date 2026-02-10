@@ -1,9 +1,20 @@
+import { verifyGroupAccess } from "../_auth.js";
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const groupId = url.searchParams.get('group_id') || 'group_default';
 
   try {
+    if (!env.DB) {
+      return Response.json({ error: "D1 Binding missing (DB)" }, { status: 500 });
+    }
+
+    // Authorization Check
+    if (!await verifyGroupAccess(request, env, groupId)) {
+      return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+    }
+
     // Group by category for current month
     // Filter for '支出' only
     const stats = await env.DB.prepare(`

@@ -1,9 +1,20 @@
+import { verifyGroupAccess } from "../_auth.js";
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const groupId = url.searchParams.get('group_id') || 'group_default';
 
   try {
+    if (!env.DB) {
+      return Response.json({ error: "D1 Binding missing (DB)" }, { status: 500 });
+    }
+
+    // Authorization Check
+    if (!await verifyGroupAccess(request, env, groupId)) {
+      return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+    }
+
     // 1. Calculate total paid per person for "Expense" (支出)
     const paidResults = await env.DB.prepare(`
       SELECT payer_id, SUM(amount) as total_paid
