@@ -1,24 +1,4 @@
-async function initializeMembers(env) {
-  const defaultMembers = [
-    { id: 'Daniel', name: 'Daniel' },
-    { id: 'Jacky', name: 'Jacky' }
-  ];
-
-  await env.DB.batch([
-    env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS members (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        group_id TEXT NOT NULL
-      )
-    `),
-    ...defaultMembers.map(m =>
-      env.DB.prepare(`INSERT OR IGNORE INTO members (id, name, group_id) VALUES (?, ?, 'group_default')`).bind(m.id, m.name)
-    )
-  ]);
-
-  return defaultMembers;
-}
+import { DEFAULT_MEMBERS } from '../config.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -32,15 +12,27 @@ export async function onRequest(context) {
 
     if ((!results || results.length === 0) && groupId === 'group_default') {
       try {
-        const members = await initializeMembers(env);
-        return Response.json(members);
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS members (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            group_id TEXT NOT NULL
+          )
+        `).run();
+
+        const statements = DEFAULT_MEMBERS.map(member =>
+          env.DB.prepare(
+            `INSERT OR IGNORE INTO members (id, name, group_id) VALUES (?, ?, ?)`
+          ).bind(member.id, member.name, member.group_id)
+        );
+
+        await env.DB.batch(statements);
+
+        return Response.json(DEFAULT_MEMBERS.map(m => ({ id: m.id, name: m.name })));
       } catch (seedErr) {
         console.error("Auto-seed failed:", seedErr);
         // Fallback
-        return Response.json([
-          { id: 'Daniel', name: 'Daniel' },
-          { id: 'Jacky', name: 'Jacky' }
-        ]);
+        return Response.json(DEFAULT_MEMBERS.map(m => ({ id: m.id, name: m.name })));
       }
     }
 
@@ -48,8 +40,23 @@ export async function onRequest(context) {
   } catch (err) {
     if (String(err).includes("no such table")) {
       try {
-        const members = await initializeMembers(env);
-        return Response.json(members);
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS members (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            group_id TEXT NOT NULL
+          )
+        `).run();
+
+        const statements = DEFAULT_MEMBERS.map(member =>
+          env.DB.prepare(
+            `INSERT OR IGNORE INTO members (id, name, group_id) VALUES (?, ?, ?)`
+          ).bind(member.id, member.name, member.group_id)
+        );
+
+        await env.DB.batch(statements);
+
+        return Response.json(DEFAULT_MEMBERS.map(m => ({ id: m.id, name: m.name })));
       } catch (e2) {
         return Response.json({ error: "Schema init failed: " + e2.message }, { status: 500 });
       }
