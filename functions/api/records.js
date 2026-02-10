@@ -1,3 +1,5 @@
+import { EXPENSE_TYPE, INCOME_TYPE } from "../_constants.js";
+
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -47,7 +49,7 @@ export async function onRequest(context) {
       const group_id = String(body.group_id || groupId).trim();
       const date = String(body.date || new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
 
-      if (!["支出", "收入"].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
+      if (![EXPENSE_TYPE, INCOME_TYPE].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
       if (!category) return Response.json({ error: "Missing category" }, { status: 400 });
       if (!description) return Response.json({ error: "Missing description" }, { status: 400 });
       if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: "Invalid amount" }, { status: 400 });
