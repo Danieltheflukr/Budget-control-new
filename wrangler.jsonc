@@ -11,8 +11,8 @@
     }
   ],
   "vars": {
-    "TELEGRAM_BOT_TOKEN": "REPLACE_WITH_YOUR_TOKEN",
-    "TELEGRAM_CHAT_ID": "REPLACE_WITH_YOUR_CHAT_ID"
+    "TELEGRAM_BOT_TOKEN": "7223017013:AAG4nup2zvcjS0GE-plBiand5U6J_pdeeH0",
+    "TELEGRAM_CHAT_ID": "@Danthenewbot"
   }
 name = "budget-control-api"
 main = "src/index.js"
@@ -20,7 +20,7 @@ compatibility_date = "2026-02-10"
 
 # 環境變數 (API Key 建議在 Cloudflare 後台加密設定，或在此處測試用)
 [vars]
-API_AUTH_KEY = "這裡填寫您自訂的密鑰"
+API_AUTH_KEY = "0972915615"
 
 # KV 資料庫綁定
 [[kv_namespaces]]
