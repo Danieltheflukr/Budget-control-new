@@ -1,3 +1,4 @@
+import { verifyGroupAccess } from "../_auth.js";
 import { EXPENSE_TYPE } from "../_constants.js";
 
 export async function onRequest(context) {
@@ -6,7 +7,18 @@ export async function onRequest(context) {
   const groupId = url.searchParams.get('group_id') || 'group_default';
 
   try {
-    // 1. Calculate total paid per person for "Expense" (支出)
+    if (!env.DB) {
+      return Response.json({ error: "D1 Binding missing (DB)" }, { status: 500 });
+    }
+
+    // Authorization Check
+    // This requires verifyGroupAccess from ../_auth.js
+    if (!await verifyGroupAccess(request, env, groupId)) {
+      return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+    }
+
+    // 1. Calculate total paid per person for "Expense"
+    // This requires EXPENSE_TYPE from ../_constants.js
     const paidResults = await env.DB.prepare(`
       SELECT payer_id, SUM(amount) as total_paid
       FROM records
