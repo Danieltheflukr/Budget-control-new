@@ -1,5 +1,3 @@
-import { EXPENSE_TYPE } from "../_constants.js";
-
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -10,9 +8,9 @@ export async function onRequest(context) {
     const paidResults = await env.DB.prepare(`
       SELECT payer_id, SUM(amount) as total_paid
       FROM records
-      WHERE group_id = ? AND type = ?
+      WHERE group_id = ? AND type = '支出'
       GROUP BY payer_id
-    `).bind(groupId, EXPENSE_TYPE).all();
+    `).bind(groupId).all();
 
     // 2. Get all members of the group
     const members = await env.DB.prepare(`SELECT id, name FROM members WHERE group_id = ?`).bind(groupId).all();

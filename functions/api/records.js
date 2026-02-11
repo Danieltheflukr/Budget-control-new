@@ -1,4 +1,4 @@
-import { EXPENSE_TYPE, INCOME_TYPE } from "../_constants.js";
+import { sendTelegramNotification } from '../_utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -49,7 +49,7 @@ export async function onRequest(context) {
       const group_id = String(body.group_id || groupId).trim();
       const date = String(body.date || new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
 
-      if (![EXPENSE_TYPE, INCOME_TYPE].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
+      if (!["支出", "收入"].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
       if (!category) return Response.json({ error: "Missing category" }, { status: 400 });
       if (!description) return Response.json({ error: "Missing description" }, { status: 400 });
       if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: "Invalid amount" }, { status: 400 });
@@ -92,7 +92,38 @@ export async function onRequest(context) {
 
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   } catch (err) {
-    console.error(err);
+    if (String(err).includes("no such table")) {
+      try {
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS records (
+            record_id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            category TEXT NOT NULL,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            payer_id TEXT NOT NULL,
+            group_id TEXT NOT NULL,
+            date TEXT NOT NULL
+          )
+        `).run();
+
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS members (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            group_id TEXT NOT NULL
+          )
+        `).run();
+
+        await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Daniel', 'Daniel', 'group_default')").run();
+        await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Jacky', 'Jacky', 'group_default')").run();
+
+        // Retry the original operation if possible, but for simplicity, just return empty or error asking to retry
+        return Response.json({ error: "Table created, please retry" }, { status: 503 });
+      } catch (e2) {
+        return Response.json({ error: "Schema init failed: " + e2.message }, { status: 500 });
+      }
+    }
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
