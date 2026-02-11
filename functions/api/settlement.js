@@ -4,16 +4,18 @@ export async function onRequest(context) {
   const groupId = url.searchParams.get('group_id') || 'group_default';
 
   try {
-    // 1. Calculate total paid per person for "Expense" (支出)
-    const paidResults = await env.DB.prepare(`
-      SELECT payer_id, SUM(amount) as total_paid
-      FROM records
-      WHERE group_id = ? AND type = '支出'
-      GROUP BY payer_id
-    `).bind(groupId).all();
-
-    // 2. Get all members of the group
-    const members = await env.DB.prepare(`SELECT id, name FROM members WHERE group_id = ?`).bind(groupId).all();
+    // Execute database queries in parallel
+    const [paidResults, members] = await Promise.all([
+      // 1. Calculate total paid per person for "Expense"
+      env.DB.prepare(`
+        SELECT payer_id, SUM(amount) as total_paid
+        FROM records
+        WHERE group_id = ? AND type = ?
+        GROUP BY payer_id
+      `).bind(groupId, EXPENSE_TYPE).all(),
+      // 2. Get all members of the group
+      env.DB.prepare(`SELECT id, name FROM members WHERE group_id = ?`).bind(groupId).all()
+    ]);
 
     if (!members.results || members.results.length === 0) {
       return Response.json({ total: 0, perPerson: 0, balances: [] });
