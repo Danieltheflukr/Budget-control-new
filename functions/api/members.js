@@ -20,6 +20,9 @@ export async function onRequest(context) {
 
     // 2. Auto-Seed Logic (From main branch)
     // If members table is missing or empty for default group, try to initialize schema/data
+        const member = await env.DB.prepare(
+      "SELECT 1 FROM members WHERE id = ? AND group_id = ?"
+    ).bind(userId, groupId).first();
     if ((!members.results || members.results.length === 0) && groupId === 'group_default') {
       try {
         // Create Table if not exists
