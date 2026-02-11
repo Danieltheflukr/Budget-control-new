@@ -10,8 +10,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
-    <div class="max-w-md mx-auto p-4 pb-20">
-        <!-- Header -->
+    <div class="max-w-md mx-auto p-4 pb-24">
         <header class="flex justify-between items-center mb-6 pt-4">
             <div>
                 <h1 class="text-2xl font-bold text-white tracking-tight">DanJacky</h1>
@@ -24,12 +23,11 @@
             </div>
         </header>
 
-        <!-- Monthly Summary (Budget & Stats) -->
         <section class="mb-6">
             <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Expenses (This Month)</p>
+                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Expenses</p>
                         <h2 class="text-3xl font-bold text-white mt-1" id="totalExpenseDisplay">$0.00</h2>
                     </div>
                     <div class="w-16 h-16">
@@ -37,7 +35,6 @@
                     </div>
                 </div>
 
-                <!-- Budget Progress -->
                 <div class="mb-2">
                     <div class="flex justify-between text-xs mb-1">
                         <span class="text-slate-400">Monthly Budget</span>
@@ -51,124 +48,87 @@
             </div>
         </section>
 
-        <!-- Settlement / Balances -->
         <section class="mb-6">
             <h3 class="text-lg font-semibold text-white mb-3 flex items-center">
                 <i class="fas fa-hand-holding-usd mr-2 text-cyan-400"></i> Settlement
             </h3>
             <div id="settlementContainer" class="grid grid-cols-1 gap-3">
-                <!-- Settlement cards will be injected here -->
-                <div class="glass-card p-4 rounded-xl text-center text-slate-400 text-sm">
-                    Loading balances...
+                <div class="glass-card p-4 rounded-xl text-center text-slate-400 text-sm italic">
+                    Calculating balances...
                 </div>
             </div>
         </section>
 
-        <!-- Recent Records -->
-        <section class="mb-20">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-lg font-semibold text-white flex items-center">
-                    <i class="fas fa-list mr-2 text-cyan-400"></i> Recent Records
-                </h3>
-            </div>
-            <div id="recordsList" class="space-y-3">
-                <!-- Records will be injected here -->
-            </div>
+        <section class="mb-6">
+            <h3 class="text-lg font-semibold text-white mb-3 flex items-center">
+                <i class="fas fa-receipt mr-2 text-cyan-400"></i> Spending Memo
+            </h3>
+            <div id="memoList" class="space-y-3">
+                </div>
         </section>
 
-        <!-- Floating Action Button -->
         <div class="fixed bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
-            <button onclick="openModal()" class="pointer-events-auto bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white w-14 h-14 rounded-full shadow-lg shadow-blue-500/30 flex items-center justify-center transform transition-transform hover:scale-105 active:scale-95">
+            <button onclick="openModal()" class="pointer-events-auto bg-gradient-to-r from-blue-600 to-cyan-500 text-white w-14 h-14 rounded-full shadow-lg shadow-blue-500/30 flex items-center justify-center transform transition-transform hover:scale-105 active:scale-95">
                 <i class="fas fa-plus text-xl"></i>
             </button>
         </div>
 
-        <!-- Add Record Modal -->
         <div id="addRecordModal" class="fixed inset-0 z-[60] hidden">
-            <!-- Backdrop -->
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
-
-            <!-- Modal Content -->
-            <div class="absolute bottom-0 left-0 right-0 glass-modal-content rounded-t-3xl p-6 transform transition-transform duration-300 translate-y-full" id="modalContent">
+            <div class="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-6" id="modalContent">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-bold text-white">New Record</h3>
-                    <button onclick="closeModal()" class="text-slate-400 hover:text-white">
+                    <button onclick="closeModal()" class="text-slate-400">
                         <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
 
                 <form id="recordForm" onsubmit="handleAddRecord(event)">
-                    <!-- Type Selection -->
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <label class="cursor-pointer">
-                            <input type="radio" name="type" value="支出" checked class="peer sr-only" onchange="toggleType(this.value)">
+                            <input type="radio" name="type" value="支出" checked class="peer sr-only">
                             <div class="p-3 text-center rounded-xl bg-slate-800 border border-slate-700 peer-checked:bg-red-500/20 peer-checked:border-red-500 peer-checked:text-red-400 transition-all">
                                 Expense (支出)
                             </div>
                         </label>
                         <label class="cursor-pointer">
-                            <input type="radio" name="type" value="收入" class="peer sr-only" onchange="toggleType(this.value)">
+                            <input type="radio" name="type" value="收入" class="peer sr-only">
                             <div class="p-3 text-center rounded-xl bg-slate-800 border border-slate-700 peer-checked:bg-green-500/20 peer-checked:border-green-500 peer-checked:text-green-400 transition-all">
                                 Income (收入)
                             </div>
                         </label>
                     </div>
 
-                    <!-- Amount -->
                     <div class="mb-4">
                         <label class="block text-xs text-slate-400 mb-1">Amount</label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                            <input type="number" name="amount" step="0.01" required placeholder="0.00" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 pl-8 text-white focus:outline-none focus:border-cyan-500 transition-colors">
-                        </div>
+                        <input type="number" name="amount" step="0.01" required placeholder="0.00" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
                     </div>
 
-                    <!-- Category -->
                     <div class="mb-4">
-                        <label class="block text-xs text-slate-400 mb-1">Category</label>
-                        <select name="category" id="categorySelect" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 appearance-none">
-                            <option value="食">Food (食)</option>
-                            <option value="衣">Clothing (衣)</option>
-                            <option value="住">Housing (住)</option>
-                            <option value="行">Transport (行)</option>
-                            <option value="育">Education (育)</option>
-                            <option value="樂">Entertainment (樂)</option>
-                            <option value="其他">Other (其他)</option>
-                        </select>
+                        <label class="block text-xs text-slate-400 mb-1">Memo / Description</label>
+                        <textarea name="description" required placeholder="What was this for?" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white h-20"></textarea>
                     </div>
 
-                    <!-- Description -->
-                    <div class="mb-4">
-                        <label class="block text-xs text-slate-400 mb-1">Description</label>
-                        <input type="text" name="description" required placeholder="Lunch, Taxi, etc." class="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
-                    </div>
-
-                    <!-- Payer & Date Row -->
                     <div class="grid grid-cols-2 gap-3 mb-6">
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Payer</label>
-                            <select name="payer_id" id="payerSelect" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 appearance-none">
+                            <select name="payer_id" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
                                 <option value="Daniel">Daniel</option>
                                 <option value="Jacky">Jacky</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Date</label>
-                            <input type="date" name="date" required class="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                            <input type="date" name="date" required class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
                         </div>
                     </div>
 
-                    <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-cyan-500/20 transition-all active:scale-95">
+                    <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all">
                         Save Record
                     </button>
                 </form>
             </div>
         </div>
-
-        <footer class="mt-8 text-center text-xs text-slate-500 pb-4">
-            <a href="privacy.html" class="hover:text-slate-300">Privacy</a> •
-            <a href="terms.html" class="hover:text-slate-300">Terms</a>
-        </footer>
     </div>
 
     <script src="app.js"></script>
