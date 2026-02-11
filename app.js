@@ -165,7 +165,7 @@ function renderStats(stats) {
     elements.totalExpenseDisplay.textContent = formatCurrency(totalExpense);
 
     // Update Budget (Hardcoded 30,000 for now)
-    const budget = 30000;
+    const budget = MONTHLY_BUDGET;;
     const percentage = Math.min((totalExpense / budget) * 100, 100).toFixed(1);
     
     if (elements.budgetProgress) {
