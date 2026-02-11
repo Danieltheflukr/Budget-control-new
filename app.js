@@ -1,9 +1,10 @@
-// Global State
-let expenseChartInstance = null;
+// --- CONFIGURATION & STATE ---
 const API_BASE = '/api';
-const GROUP_ID = 'group_default'; // Default group
+const GROUP_ID = 'group_default';
+const BUDGET_LIMIT = 30000;
+let expenseChartInstance = null;
 
-// DOM Elements
+// --- DOM ELEMENTS ---
 const elements = {
     memoList: document.getElementById('memoList'),
     totalExpenseDisplay: document.getElementById('totalExpenseDisplay'),
@@ -18,7 +19,6 @@ const elements = {
 
 // --- 1. UTILITIES ---
 
-// Helper: Create Safe Element to prevent XSS
 function createSafeElement(tag, className, text) {
     const el = document.createElement(tag);
     if (className) el.className = className;
@@ -26,7 +26,6 @@ function createSafeElement(tag, className, text) {
     return el;
 }
 
-// Helper: Format Currency
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -34,27 +33,28 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-// --- 2. INITIALIZATION & EVENT LISTENERS ---
+// --- 2. INITIALIZATION & LISTENERS ---
 
 document.addEventListener('DOMContentLoaded', () => {
     refreshData();
 
-    // Set default date to today (from Main branch)
+    // Set default date to today
     const dateInput = document.querySelector('input[name="date"]');
     if (dateInput) {
         dateInput.valueAsDate = new Date();
     }
 });
 
-// Event Delegation for Delete Buttons (Performance Optimization from Main branch)
+// Event Delegation for Delete Buttons (Performance Optimization)
 if (elements.memoList) {
     elements.memoList.addEventListener('click', (e) => {
-        // Check if clicked element is (or is inside) a delete button
+        // Look for the delete button (or its icon children)
         const btn = e.target.closest('.delete-btn');
         if (!btn) return;
 
         e.stopPropagation();
 
+        // Find the parent card to get the ID
         const card = btn.closest('.glass-card');
         if (card && card.dataset.id) {
             deleteRecord(card.dataset.id);
@@ -73,7 +73,7 @@ window.onclick = function(event) {
 
 async function refreshData() {
     try {
-        // Fetch all data in parallel (From Fix branch - robust data loading)
+        // Fetch all data in parallel
         const [recordsRes, statsRes, settlementRes] = await Promise.all([
             fetch(`${API_BASE}/records?group_id=${GROUP_ID}`),
             fetch(`${API_BASE}/stats?group_id=${GROUP_ID}`),
@@ -98,7 +98,7 @@ async function refreshData() {
 function renderRecords(records) {
     elements.memoList.innerHTML = '';
 
-    if (records.length === 0) {
+    if (!records || records.length === 0) {
         elements.memoList.appendChild(
             createSafeElement('div', 'text-center text-slate-500 py-4', 'No records found.')
         );
@@ -110,27 +110,26 @@ function renderRecords(records) {
         const amountClass = isExpense ? 'text-red-400' : 'text-green-400';
         const amountSign = isExpense ? '-' : '+';
 
+        // Container Card
         const card = createSafeElement('div', 'glass-card p-4 rounded-xl flex justify-between items-center relative group');
-        // Add data-id for Event Delegation
+        // CRITICAL: Add ID for Event Delegation
         card.dataset.id = r.record_id;
 
         // Left Side: Icon & Info
         const leftDiv = document.createElement('div');
         leftDiv.className = 'flex items-center gap-3';
 
-        // Icon based on category
+        // Icon
         const iconContainer = document.createElement('div');
         iconContainer.className = `w-10 h-10 rounded-full flex items-center justify-center ${isExpense ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`;
         const icon = document.createElement('i');
         icon.className = isExpense ? 'fas fa-shopping-bag' : 'fas fa-wallet';
         iconContainer.appendChild(icon);
 
+        // Text Info
         const infoDiv = document.createElement('div');
-        const descEl = createSafeElement('h4', 'font-bold text-white', r.description);
-        const metaEl = createSafeElement('p', 'text-xs text-slate-400', `${r.date} • ${r.payer_id}`);
-
-        infoDiv.appendChild(descEl);
-        infoDiv.appendChild(metaEl);
+        infoDiv.appendChild(createSafeElement('h4', 'font-bold text-white', r.description));
+        infoDiv.appendChild(createSafeElement('p', 'text-xs text-slate-400', `${new Date(r.date).toLocaleDateString()} • ${r.payer_id}`));
 
         leftDiv.appendChild(iconContainer);
         leftDiv.appendChild(infoDiv);
@@ -138,15 +137,10 @@ function renderRecords(records) {
         // Right Side: Amount & Category
         const rightDiv = document.createElement('div');
         rightDiv.className = 'text-right';
+        rightDiv.appendChild(createSafeElement('p', `font-bold ${amountClass}`, `${amountSign}${formatCurrency(r.amount)}`));
+        rightDiv.appendChild(createSafeElement('p', 'text-xs text-slate-500', r.category));
 
-        const amountEl = createSafeElement('p', `font-bold ${amountClass}`, `${amountSign}${formatCurrency(r.amount)}`);
-        const categoryEl = createSafeElement('p', 'text-xs text-slate-500', r.category);
-
-        rightDiv.appendChild(amountEl);
-        rightDiv.appendChild(categoryEl);
-
-        // Delete Button
-        // Note: We do NOT add onclick here. We add the 'delete-btn' class for the delegation listener.
+        // Delete Button (Class 'delete-btn' required for delegation)
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn absolute top-2 right-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1';
         deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
@@ -160,37 +154,35 @@ function renderRecords(records) {
 }
 
 function renderStats(stats) {
-    // Calculate total expense
     const totalExpense = stats.reduce((sum, item) => sum + item.value, 0);
-    elements.totalExpenseDisplay.textContent = formatCurrency(totalExpense);
-
-    // Update Budget (Hardcoded 30,000 for now)
-    const budget = MONTHLY_BUDGET;;
-    const percentage = Math.min((totalExpense / budget) * 100, 100).toFixed(1);
     
+    if(elements.totalExpenseDisplay) {
+        elements.totalExpenseDisplay.textContent = formatCurrency(totalExpense);
+    }
+
+    // Update Budget Bar
     if (elements.budgetProgress) {
+        const percentage = Math.min((totalExpense / BUDGET_LIMIT) * 100, 100).toFixed(1);
         elements.budgetProgress.style.width = `${percentage}%`;
         
-        // Color code progress bar
         if (percentage > 90) {
             elements.budgetProgress.className = 'bg-red-500 h-2 rounded-full transition-all duration-500';
         } else {
             elements.budgetProgress.className = 'bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-500';
         }
-    }
-    
-    if (elements.budgetPercentage) {
-        elements.budgetPercentage.textContent = `${percentage}%`;
+        
+        if (elements.budgetPercentage) {
+            elements.budgetPercentage.textContent = `${percentage}%`;
+        }
     }
 
-    // Render Chart (From Fix branch)
+    // Render Chart
     if (elements.expenseChartCanvas) {
         if (expenseChartInstance) {
             expenseChartInstance.destroy();
         }
 
         const ctx = elements.expenseChartCanvas.getContext('2d');
-        // Ensure Chart.js is loaded in HTML
         if (typeof Chart !== 'undefined') {
             expenseChartInstance = new Chart(ctx, {
                 type: 'doughnut',
@@ -198,18 +190,14 @@ function renderStats(stats) {
                     labels: stats.map(s => s.category),
                     datasets: [{
                         data: stats.map(s => s.value),
-                        backgroundColor: [
-                            '#3b82f6', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'
-                        ],
+                        backgroundColor: ['#3b82f6', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'],
                         borderWidth: 0
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
+                    plugins: { legend: { display: false } },
                     cutout: '70%'
                 }
             });
@@ -228,35 +216,31 @@ function renderSettlement(data) {
     data.balances.forEach(b => {
         const card = createSafeElement('div', 'glass-card p-3 rounded-xl flex justify-between items-center');
 
-        // Member Info
+        // Left
         const leftDiv = document.createElement('div');
         leftDiv.className = 'flex items-center gap-3';
         const avatar = createSafeElement('div', 'w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white', b.name.charAt(0));
         const nameDiv = document.createElement('div');
         nameDiv.appendChild(createSafeElement('p', 'text-sm font-bold text-white', b.name));
         nameDiv.appendChild(createSafeElement('p', 'text-xs text-slate-400', `Paid: ${formatCurrency(b.paid)}`));
-
         leftDiv.appendChild(avatar);
         leftDiv.appendChild(nameDiv);
 
-        // Balance Info
+        // Right
         const rightDiv = document.createElement('div');
         rightDiv.className = 'text-right';
         const isPositive = b.balance >= 0;
         const colorClass = isPositive ? 'text-green-400' : 'text-red-400';
-        const labelText = isPositive ? 'Receives' : 'Pays';
-
         rightDiv.appendChild(createSafeElement('p', `text-sm font-bold ${colorClass}`, formatCurrency(Math.abs(b.balance))));
-        rightDiv.appendChild(createSafeElement('p', 'text-xs text-slate-500', labelText));
+        rightDiv.appendChild(createSafeElement('p', 'text-xs text-slate-500', isPositive ? 'Receives' : 'Pays'));
 
         card.appendChild(leftDiv);
         card.appendChild(rightDiv);
-
         elements.settlementContainer.appendChild(card);
     });
 }
 
-// --- 5. INTERACTION & LOGIC ---
+// --- 5. ACTIONS ---
 
 function openModal() {
     elements.addRecordModal.classList.remove('hidden');
@@ -275,19 +259,19 @@ async function handleAddRecord(event) {
         type: formData.get('type'),
         amount: parseFloat(formData.get('amount')),
         description: formData.get('description'),
-        category: 'General', // Default
+        category: 'General',
         payer_id: formData.get('payer_id'),
         date: formData.get('date'),
         group_id: GROUP_ID
     };
 
-    // Auto-categorize based on description (From Fix branch)
+    // Auto-categorize
     const desc = data.description.toLowerCase();
-    if (desc.includes('food') || desc.includes('lunch') || desc.includes('dinner')) data.category = 'Food';
-    else if (desc.includes('transport') || desc.includes('uber') || desc.includes('bus')) data.category = 'Transport';
-    else if (desc.includes('bill') || desc.includes('electric')) data.category = 'Utilities';
-    else if (desc.includes('shop') || desc.includes('buy')) data.category = 'Shopping';
-    
+    if (desc.includes('food') || desc.includes('lunch')) data.category = 'Food';
+    else if (desc.includes('transport') || desc.includes('uber')) data.category = 'Transport';
+    else if (desc.includes('bill')) data.category = 'Utilities';
+    else if (desc.includes('shop')) data.category = 'Shopping';
+
     try {
         const res = await fetch(`${API_BASE}/records`, {
             method: 'POST',
@@ -297,7 +281,7 @@ async function handleAddRecord(event) {
 
         if (res.ok) {
             closeModal();
-            refreshData(); // Reload everything
+            refreshData();
         } else {
             const err = await res.json();
             alert(`Error: ${err.error}`);
@@ -327,7 +311,7 @@ async function deleteRecord(id) {
     }
 }
 
-// --- 6. BENCHMARKING (From Main Branch) ---
+// --- 6. BENCHMARKING ---
 
 function runBenchmark(count = 1000) {
     const dummyRecords = Array.from({ length: count }, (_, i) => ({
@@ -341,13 +325,13 @@ function runBenchmark(count = 1000) {
     }));
 
     console.time('Render Time');
-    // Mock the render logic directly
+    // Directly invoke render to test DOM performance
     renderRecords(dummyRecords);
     console.timeEnd('Render Time');
     console.log(`Rendered ${count} items.`);
 }
 
-// Expose functions to global scope for HTML inline events
+// Expose to Global Scope (for HTML on click attributes)
 window.refreshData = refreshData;
 window.openModal = openModal;
 window.closeModal = closeModal;
