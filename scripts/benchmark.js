@@ -20,7 +20,6 @@ async function waitForServer() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 1000);
       
-      // 🛡️ Included AUTH_HEADERS here
       const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`, { 
         signal: controller.signal,
         headers: AUTH_HEADERS
@@ -53,7 +52,6 @@ async function runBenchmark() {
 
   // Warmup
   try {
-      // 🛡️ Included AUTH_HEADERS here
       const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`, {
         headers: AUTH_HEADERS
       });
@@ -66,7 +64,6 @@ async function runBenchmark() {
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
     try {
-        // 🛡️ Included AUTH_HEADERS here
         const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`, {
           headers: AUTH_HEADERS
         });
@@ -101,7 +98,6 @@ async function runBenchmark() {
   console.log(`  Max:     ${sorted[sorted.length - 1].toFixed(2)} ms`);
 }
 
-// 🔧 Removed the duplicate main() function
 async function main() {
   let child;
   try {
