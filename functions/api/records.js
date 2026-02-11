@@ -9,10 +9,10 @@ export async function onRequest(context) {
       return Response.json({ error: "D1 Binding missing (DB)" }, { status: 500 });
     }
 
+    // === GET: 取得紀錄 ===
     if (method === "GET") {
       const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 100), 1), 500);
 
-      // records + join members to get payer name
       const { results } = await env.DB.prepare(`
         SELECT
           r.record_id, r.type, r.category, r.description, r.amount,
@@ -30,6 +30,7 @@ export async function onRequest(context) {
       return Response.json(results || []);
     }
 
+    // === POST: 新增紀錄 ===
     if (method === "POST") {
       let body;
       try {
@@ -45,7 +46,7 @@ export async function onRequest(context) {
       const amount = Number(body.amount);
       const payer_id = String(body.payer_id || "").trim();
       const group_id = String(body.group_id || groupId).trim();
-      const date = String(body.date || new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
+      const date = String(body.date || new Date().toISOString().slice(0, 10));
 
       if (!["支出", "收入"].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
       if (!category) return Response.json({ error: "Missing category" }, { status: 400 });
@@ -53,7 +54,7 @@ export async function onRequest(context) {
       if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: "Invalid amount" }, { status: 400 });
       if (!payer_id) return Response.json({ error: "Missing payer_id" }, { status: 400 });
 
-      // Verify payer exists in group
+      // 檢查成員是否存在
       const memberCheck = await env.DB.prepare(
         "SELECT id FROM members WHERE id = ? AND group_id = ?"
       ).bind(payer_id, group_id).first();
@@ -66,17 +67,18 @@ export async function onRequest(context) {
         "INSERT INTO records (record_id, type, category, description, amount, payer_id, group_id, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind(record_id, type, category, description, amount, payer_id, group_id, date).run();
       
-      // Send Telegram notification if configured
+      // 發送 Telegram 通知 (使用 waitUntil 確保執行)
       if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
         const msg = `New Record:\nType: ${type}\nCategory: ${category}\nDescription: ${description}\nAmount: ${amount}\nPayer: ${payer_id}\nDate: ${date}`;
         const tgUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${env.TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msg)}`;
-        // Fire and forget
-        fetch(tgUrl).catch(console.error);
+        
+        context.waitUntil(fetch(tgUrl).catch(console.error));
       }
 
       return Response.json({ success: true, record_id }, { status: 201 });
     }
 
+    // === DELETE: 刪除紀錄 ===
     if (method === "DELETE") {
       const id = url.searchParams.get("id");
       if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
@@ -89,7 +91,9 @@ export async function onRequest(context) {
     }
 
     return Response.json({ error: "Method not allowed" }, { status: 405 });
+
   } catch (err) {
+    // === 錯誤處理與自動建表 ===
     if (String(err).includes("no such table")) {
       try {
         await env.DB.prepare(`
@@ -113,11 +117,13 @@ export async function onRequest(context) {
           )
         `).run();
 
+        // ⚠️ 修正重點：移除了這裡原本錯誤的 document.createElement 等前端程式碼 ⚠️
+        
+        // 插入預設成員
         await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Daniel', 'Daniel', 'group_default')").run();
         await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Jacky', 'Jacky', 'group_default')").run();
 
-        // Retry the original operation if possible, but for simplicity, just return empty or error asking to retry
-        return Response.json({ error: "Table created, please retry" }, { status: 503 });
+        return Response.json({ error: "Tables created, please retry" }, { status: 503 });
       } catch (e2) {
         return Response.json({ error: "Schema init failed: " + e2.message }, { status: 500 });
       }
