@@ -16,6 +16,8 @@ const elements = {
     expenseChartCanvas: document.getElementById('expenseChart')
 };
 
+// --- 1. UTILITIES ---
+
 // Helper: Create Safe Element to prevent XSS
 function createSafeElement(tag, className, text) {
     const el = document.createElement(tag);
@@ -32,15 +34,46 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-// 1. Initialization
+// --- 2. INITIALIZATION & EVENT LISTENERS ---
+
 document.addEventListener('DOMContentLoaded', () => {
     refreshData();
+
+    // Set default date to today (from Main branch)
+    const dateInput = document.querySelector('input[name="date"]');
+    if (dateInput) {
+        dateInput.valueAsDate = new Date();
+    }
 });
 
-// 2. Fetch & Refresh Data
+// Event Delegation for Delete Buttons (Performance Optimization from Main branch)
+if (elements.memoList) {
+    elements.memoList.addEventListener('click', (e) => {
+        // Check if clicked element is (or is inside) a delete button
+        const btn = e.target.closest('.delete-btn');
+        if (!btn) return;
+
+        e.stopPropagation();
+
+        const card = btn.closest('.glass-card');
+        if (card && card.dataset.id) {
+            deleteRecord(card.dataset.id);
+        }
+    });
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    if (event.target === elements.addRecordModal) {
+        closeModal();
+    }
+};
+
+// --- 3. DATA FETCHING ---
+
 async function refreshData() {
     try {
-        // Fetch all data in parallel
+        // Fetch all data in parallel (From Fix branch - robust data loading)
         const [recordsRes, statsRes, settlementRes] = await Promise.all([
             fetch(`${API_BASE}/records?group_id=${GROUP_ID}`),
             fetch(`${API_BASE}/stats?group_id=${GROUP_ID}`),
@@ -60,7 +93,8 @@ async function refreshData() {
     }
 }
 
-// 3. Render Records
+// --- 4. RENDER FUNCTIONS ---
+
 function renderRecords(records) {
     elements.memoList.innerHTML = '';
 
@@ -77,16 +111,18 @@ function renderRecords(records) {
         const amountSign = isExpense ? '-' : '+';
 
         const card = createSafeElement('div', 'glass-card p-4 rounded-xl flex justify-between items-center relative group');
+        // Add data-id for Event Delegation
+        card.dataset.id = r.record_id;
 
         // Left Side: Icon & Info
         const leftDiv = document.createElement('div');
         leftDiv.className = 'flex items-center gap-3';
 
-        // Icon based on category (simple mapping)
+        // Icon based on category
         const iconContainer = document.createElement('div');
         iconContainer.className = `w-10 h-10 rounded-full flex items-center justify-center ${isExpense ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`;
         const icon = document.createElement('i');
-        icon.className = isExpense ? 'fas fa-shopping-bag' : 'fas fa-wallet'; // Default icons
+        icon.className = isExpense ? 'fas fa-shopping-bag' : 'fas fa-wallet';
         iconContainer.appendChild(icon);
 
         const infoDiv = document.createElement('div');
@@ -99,7 +135,7 @@ function renderRecords(records) {
         leftDiv.appendChild(iconContainer);
         leftDiv.appendChild(infoDiv);
 
-        // Right Side: Amount & Delete
+        // Right Side: Amount & Category
         const rightDiv = document.createElement('div');
         rightDiv.className = 'text-right';
 
@@ -109,11 +145,11 @@ function renderRecords(records) {
         rightDiv.appendChild(amountEl);
         rightDiv.appendChild(categoryEl);
 
-        // Delete Button (absolute positioned, shows on hover/focus)
+        // Delete Button
+        // Note: We do NOT add onclick here. We add the 'delete-btn' class for the delegation listener.
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'absolute top-2 right-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1';
+        deleteBtn.className = 'delete-btn absolute top-2 right-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1';
         deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-        deleteBtn.onclick = () => deleteRecord(r.record_id);
 
         card.appendChild(leftDiv);
         card.appendChild(rightDiv);
@@ -123,62 +159,65 @@ function renderRecords(records) {
     });
 }
 
-// 4. Render Stats (Chart + Total)
 function renderStats(stats) {
-    // stats is array: [{category, value}, ...]
-    
     // Calculate total expense
     const totalExpense = stats.reduce((sum, item) => sum + item.value, 0);
     elements.totalExpenseDisplay.textContent = formatCurrency(totalExpense);
 
-    // Update Budget (Hardcoded 30,000 for now based on HTML)
+    // Update Budget (Hardcoded 30,000 for now)
     const budget = 30000;
     const percentage = Math.min((totalExpense / budget) * 100, 100).toFixed(1);
     
-    elements.budgetProgress.style.width = `${percentage}%`;
-    elements.budgetPercentage.textContent = `${percentage}%`;
+    if (elements.budgetProgress) {
+        elements.budgetProgress.style.width = `${percentage}%`;
+        
+        // Color code progress bar
+        if (percentage > 90) {
+            elements.budgetProgress.className = 'bg-red-500 h-2 rounded-full transition-all duration-500';
+        } else {
+            elements.budgetProgress.className = 'bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-500';
+        }
+    }
     
-    // Color code progress bar
-    if (percentage > 90) {
-        elements.budgetProgress.className = 'bg-red-500 h-2 rounded-full transition-all duration-500';
-    } else {
-        elements.budgetProgress.className = 'bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-500';
+    if (elements.budgetPercentage) {
+        elements.budgetPercentage.textContent = `${percentage}%`;
     }
 
-    // Render Chart
+    // Render Chart (From Fix branch)
     if (elements.expenseChartCanvas) {
         if (expenseChartInstance) {
             expenseChartInstance.destroy();
         }
 
         const ctx = elements.expenseChartCanvas.getContext('2d');
-        expenseChartInstance = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: stats.map(s => s.category),
-                datasets: [{
-                    data: stats.map(s => s.value),
-                    backgroundColor: [
-                        '#3b82f6', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'
-                    ],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
+        // Ensure Chart.js is loaded in HTML
+        if (typeof Chart !== 'undefined') {
+            expenseChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: stats.map(s => s.category),
+                    datasets: [{
+                        data: stats.map(s => s.value),
+                        backgroundColor: [
+                            '#3b82f6', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'
+                        ],
+                        borderWidth: 0
+                    }]
                 },
-                cutout: '70%'
-            }
-        });
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
     }
 }
 
-// 5. Render Settlement
 function renderSettlement(data) {
-    // data: { total, perPerson, balances: [{id, name, paid, balance}] }
     elements.settlementContainer.innerHTML = '';
 
     if (!data.balances || data.balances.length === 0) {
@@ -203,7 +242,6 @@ function renderSettlement(data) {
         // Balance Info
         const rightDiv = document.createElement('div');
         rightDiv.className = 'text-right';
-
         const isPositive = b.balance >= 0;
         const colorClass = isPositive ? 'text-green-400' : 'text-red-400';
         const labelText = isPositive ? 'Receives' : 'Pays';
@@ -218,7 +256,8 @@ function renderSettlement(data) {
     });
 }
 
-// 6. UI Interactions
+// --- 5. INTERACTION & LOGIC ---
+
 function openModal() {
     elements.addRecordModal.classList.remove('hidden');
 }
@@ -228,14 +267,6 @@ function closeModal() {
     elements.recordForm.reset();
 }
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-    if (event.target === elements.addRecordModal) {
-        closeModal();
-    }
-};
-
-// 7. Handle Add Record
 async function handleAddRecord(event) {
     event.preventDefault();
 
@@ -244,13 +275,13 @@ async function handleAddRecord(event) {
         type: formData.get('type'),
         amount: parseFloat(formData.get('amount')),
         description: formData.get('description'),
-        category: 'General', // Default category for now as form doesn't have it
+        category: 'General', // Default
         payer_id: formData.get('payer_id'),
         date: formData.get('date'),
         group_id: GROUP_ID
     };
 
-    // Auto-categorize based on description (Simple logic)
+    // Auto-categorize based on description (From Fix branch)
     const desc = data.description.toLowerCase();
     if (desc.includes('food') || desc.includes('lunch') || desc.includes('dinner')) data.category = 'Food';
     else if (desc.includes('transport') || desc.includes('uber') || desc.includes('bus')) data.category = 'Transport';
@@ -277,7 +308,6 @@ async function handleAddRecord(event) {
     }
 }
 
-// 8. Handle Delete Record
 async function deleteRecord(id) {
     if (!confirm('Are you sure you want to delete this record?')) return;
 
@@ -297,9 +327,30 @@ async function deleteRecord(id) {
     }
 }
 
-// Expose functions to global scope for HTML inline events (onclick)
+// --- 6. BENCHMARKING (From Main Branch) ---
+
+function runBenchmark(count = 1000) {
+    const dummyRecords = Array.from({ length: count }, (_, i) => ({
+        record_id: `bench-${i}`,
+        type: i % 2 === 0 ? '支出' : '收入',
+        category: 'Benchmark',
+        description: `Benchmark Item ${i}`,
+        amount: Math.random() * 100,
+        payer_id: 'TestUser',
+        date: '2023-01-01'
+    }));
+
+    console.time('Render Time');
+    // Mock the render logic directly
+    renderRecords(dummyRecords);
+    console.timeEnd('Render Time');
+    console.log(`Rendered ${count} items.`);
+}
+
+// Expose functions to global scope for HTML inline events
 window.refreshData = refreshData;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.handleAddRecord = handleAddRecord;
 window.deleteRecord = deleteRecord;
+window.runBenchmark = runBenchmark;

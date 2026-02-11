@@ -1,3 +1,6 @@
+import { verifyGroupAccess } from "../_auth.js";
+import { EXPENSE_TYPE, INCOME_TYPE } from "../_constants.js";
+
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -11,6 +14,11 @@ export async function onRequest(context) {
 
     // === GET: 取得紀錄 ===
     if (method === "GET") {
+      // Authorization Check (From security branch)
+      if (!await verifyGroupAccess(request, env, groupId)) {
+        return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+      }
+
       const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 100), 1), 500);
 
       const { results } = await env.DB.prepare(`
@@ -48,7 +56,16 @@ export async function onRequest(context) {
       const group_id = String(body.group_id || groupId).trim();
       const date = String(body.date || new Date().toISOString().slice(0, 10));
 
-      if (!["支出", "收入"].includes(type)) return Response.json({ error: "Invalid type" }, { status: 400 });
+      // Authorization Check (From security branch)
+      if (!await verifyGroupAccess(request, env, group_id)) {
+        return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+      }
+
+      // Validation using Constants (From main branch)
+      if (![EXPENSE_TYPE, INCOME_TYPE].includes(type)) {
+          return Response.json({ error: "Invalid type" }, { status: 400 });
+      }
+
       if (!category) return Response.json({ error: "Missing category" }, { status: 400 });
       if (!description) return Response.json({ error: "Missing description" }, { status: 400 });
       if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: "Invalid amount" }, { status: 400 });
@@ -83,6 +100,11 @@ export async function onRequest(context) {
       const id = url.searchParams.get("id");
       if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
 
+      // Authorization Check (From security branch)
+      if (!await verifyGroupAccess(request, env, groupId)) {
+        return Response.json({ error: "Unauthorized: You do not have access to this group" }, { status: 403 });
+      }
+
       await env.DB.prepare("DELETE FROM records WHERE record_id = ? AND group_id = ?")
         .bind(id, groupId)
         .run();
@@ -93,7 +115,12 @@ export async function onRequest(context) {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
 
   } catch (err) {
-    // === 錯誤處理與自動建表 ===
+    } catch (err) {
+    // Log the error for debugging (from main branch)
+    console.error(err);
+
+    // === 錯誤處理與自動建表 (From fix-app-js-logic branch) ===
+    // If the error is "no such table", we automatically create the tables.
     if (String(err).includes("no such table")) {
       try {
         await env.DB.prepare(`
@@ -116,18 +143,18 @@ export async function onRequest(context) {
             group_id TEXT NOT NULL
           )
         `).run();
-
-        // ⚠️ 修正重點：移除了這裡原本錯誤的 document.createElement 等前端程式碼 ⚠️
         
         // 插入預設成員
         await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Daniel', 'Daniel', 'group_default')").run();
         await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Jacky', 'Jacky', 'group_default')").run();
 
+        // Return 503 so the client knows to retry
         return Response.json({ error: "Tables created, please retry" }, { status: 503 });
       } catch (e2) {
         return Response.json({ error: "Schema init failed: " + e2.message }, { status: 500 });
       }
     }
+
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
