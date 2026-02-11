@@ -1,11 +1,13 @@
 {
   "name": "danjacky-collaborative-accounting",
   "version": "1.0.0",
+  "type": "module",
   "description": "Collaborative accounting app using Cloudflare Pages & D1",
   "scripts": {
     "build": "echo 'No build step'",
     "dev": "wrangler pages dev . --d1 DB=monthly_expenses",
-    "deploy": "wrangler pages deploy ."
+    "deploy": "wrangler pages deploy .",
+    "test": "node --test"
   },
   "keywords": [
     "accounting",
