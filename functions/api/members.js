@@ -1,5 +1,3 @@
-import { DEFAULT_MEMBERS } from '../config.js';
-
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -20,19 +18,20 @@ export async function onRequest(context) {
           )
         `).run();
 
-        const statements = DEFAULT_MEMBERS.map(member =>
-          env.DB.prepare(
-            `INSERT OR IGNORE INTO members (id, name, group_id) VALUES (?, ?, ?)`
-          ).bind(member.id, member.name, member.group_id)
-        );
+        await env.DB.prepare(`INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Daniel', 'Daniel', 'group_default')`).run();
+        await env.DB.prepare(`INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Jacky', 'Jacky', 'group_default')`).run();
 
-        await env.DB.batch(statements);
-
-        return Response.json(DEFAULT_MEMBERS.map(m => ({ id: m.id, name: m.name })));
+        return Response.json([
+          { id: 'Daniel', name: 'Daniel' },
+          { id: 'Jacky', name: 'Jacky' }
+        ]);
       } catch (seedErr) {
         console.error("Auto-seed failed:", seedErr);
         // Fallback
-        return Response.json(DEFAULT_MEMBERS.map(m => ({ id: m.id, name: m.name })));
+        return Response.json([
+          { id: 'Daniel', name: 'Daniel' },
+          { id: 'Jacky', name: 'Jacky' }
+        ]);
       }
     }
 
@@ -48,15 +47,13 @@ export async function onRequest(context) {
           )
         `).run();
 
-        const statements = DEFAULT_MEMBERS.map(member =>
-          env.DB.prepare(
-            `INSERT OR IGNORE INTO members (id, name, group_id) VALUES (?, ?, ?)`
-          ).bind(member.id, member.name, member.group_id)
-        );
+        await env.DB.prepare(`INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Daniel', 'Daniel', 'group_default')`).run();
+        await env.DB.prepare(`INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Jacky', 'Jacky', 'group_default')`).run();
 
-        await env.DB.batch(statements);
-
-        return Response.json(DEFAULT_MEMBERS.map(m => ({ id: m.id, name: m.name })));
+        return Response.json([
+          { id: 'Daniel', name: 'Daniel' },
+          { id: 'Jacky', name: 'Jacky' }
+        ]);
       } catch (e2) {
         return Response.json({ error: "Schema init failed: " + e2.message }, { status: 500 });
       }

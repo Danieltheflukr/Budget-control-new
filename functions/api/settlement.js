@@ -1,5 +1,3 @@
-import { EXPENSE_TYPE } from "../_constants.js";
-
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
