@@ -4,6 +4,11 @@ const PORT = 8788;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const GROUP_ID = 'bench_group';
 
+// 🛡️ Added header to bypass local authentication middleware
+const AUTH_HEADERS = {
+  'X-Member-Id': 'benchmark-test-user'
+};
+
 // Helper to wait
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -14,7 +19,12 @@ async function waitForServer() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 1000);
-      const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`, { signal: controller.signal });
+      
+      // 🛡️ Included AUTH_HEADERS here
+      const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`, { 
+        signal: controller.signal,
+        headers: AUTH_HEADERS
+      });
       clearTimeout(timeoutId);
       
       if (res.ok) {
@@ -43,7 +53,10 @@ async function runBenchmark() {
 
   // Warmup
   try {
-      const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`);
+      // 🛡️ Included AUTH_HEADERS here
+      const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`, {
+        headers: AUTH_HEADERS
+      });
       const data = await res.json();
       console.log('Warmup response:', JSON.stringify(data).substring(0, 100) + '...');
   } catch(e) {
@@ -53,7 +66,10 @@ async function runBenchmark() {
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
     try {
-        const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`);
+        // 🛡️ Included AUTH_HEADERS here
+        const res = await fetch(`${BASE_URL}/api/settlement?group_id=${GROUP_ID}`, {
+          headers: AUTH_HEADERS
+        });
         if (!res.ok) throw new Error(`Status ${res.status}`);
         await res.text(); // consume body
         const end = performance.now();
@@ -85,6 +101,7 @@ async function runBenchmark() {
   console.log(`  Max:     ${sorted[sorted.length - 1].toFixed(2)} ms`);
 }
 
+// 🔧 Removed the duplicate main() function
 async function main() {
   let child;
   try {
