@@ -2,6 +2,7 @@ export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const groupId = url.searchParams.get('group_id') || 'group_default';
+  const EXPENSE_TYPE = '支出';
 
   try {
     // Execute database queries in parallel
