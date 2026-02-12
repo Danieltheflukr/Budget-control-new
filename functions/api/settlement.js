@@ -52,6 +52,10 @@ export async function onRequest(context) {
     });
 
   } catch (err) {
+    // If table doesn't exist, return empty data
+    if (String(err).includes("no such table")) {
+        return Response.json({ total: 0, perPerson: 0, balances: [] });
+    }
     return Response.json({ error: err.message }, { status: 500 });
   }
 }

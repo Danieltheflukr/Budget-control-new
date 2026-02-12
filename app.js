@@ -41,22 +41,62 @@ document.addEventListener('DOMContentLoaded', () => {
 async function refreshData() {
     try {
         // Fetch all data in parallel
-        const [recordsRes, statsRes, settlementRes] = await Promise.all([
+        // Use Promise.allSettled to ensure one failure doesn't break everything
+        const [recordsRes, statsRes, settlementRes] = await Promise.allSettled([
             fetch(`${API_BASE}/records?group_id=${GROUP_ID}`),
             fetch(`${API_BASE}/stats?group_id=${GROUP_ID}`),
             fetch(`${API_BASE}/settlement?group_id=${GROUP_ID}`)
         ]);
 
-        const records = await recordsRes.json();
-        const stats = await statsRes.json();
-        const settlement = await settlementRes.json();
+        // Process Records
+        if (recordsRes.status === 'fulfilled' && recordsRes.value.ok) {
+            const records = await recordsRes.value.json();
+            // Handle 503 retry signal from backend (table creation)
+            if (records.error && records.error.includes("retry")) {
+                console.log("Tables creating... retrying in 2s");
+                setTimeout(refreshData, 2000);
+                return;
+            }
+            renderRecords(records);
+        } else {
+            console.error("Records fetch failed", recordsRes);
+            if (recordsRes.value && recordsRes.value.status === 503) {
+                 setTimeout(refreshData, 2000);
+                 return;
+            }
+        }
 
-        renderRecords(records);
-        renderStats(stats);
-        renderSettlement(settlement);
+        // Process Stats
+        if (statsRes.status === 'fulfilled') {
+            if (statsRes.value.ok) {
+                const stats = await statsRes.value.json();
+                renderStats(stats);
+            } else {
+                 console.error("Stats fetch failed with status", statsRes.value.status);
+                 renderStats([]);
+            }
+        } else {
+            console.error("Stats fetch network failed");
+            renderStats([]);
+        }
+
+        // Process Settlement
+        if (settlementRes.status === 'fulfilled') {
+            if (settlementRes.value.ok) {
+                const settlement = await settlementRes.value.json();
+                renderSettlement(settlement);
+            } else {
+                 console.error("Settlement fetch failed with status", settlementRes.value.status);
+                 renderSettlement({balances: []});
+            }
+        } else {
+             console.error("Settlement fetch network failed");
+             renderSettlement({balances: []});
+        }
+
     } catch (error) {
         console.error('Error fetching data:', error);
-        alert('Failed to load data. Please try again.');
+        // Don't alert immediately on load, as it might be temporary network issue
     }
 }
 
