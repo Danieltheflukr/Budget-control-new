@@ -52,7 +52,7 @@ async function refreshData() {
         if (recordsRes.status === 'fulfilled' && recordsRes.value.ok) {
             const records = await recordsRes.value.json();
             // Handle 503 retry signal from backend (table creation)
-            if (records.error && records.error.includes("retry")) {
+            if (records && records.error && records.error.includes("retry")) {
                 console.log("Tables creating... retrying in 2s");
                 setTimeout(refreshData, 2000);
                 return;
@@ -103,6 +103,14 @@ async function refreshData() {
 // 3. Render Records
 function renderRecords(records) {
     elements.memoList.innerHTML = '';
+
+    if (!Array.isArray(records)) {
+        console.error("renderRecords expected an array but got:", records);
+        elements.memoList.appendChild(
+            createSafeElement('div', 'text-center text-red-500 py-4', 'Error loading records.')
+        );
+        return;
+    }
 
     if (records.length === 0) {
         elements.memoList.appendChild(
@@ -166,6 +174,11 @@ function renderRecords(records) {
 // 4. Render Stats (Chart + Total)
 function renderStats(stats) {
     // stats is array: [{category, value}, ...]
+
+    if (!Array.isArray(stats)) {
+        console.error("renderStats expected an array but got:", stats);
+        return;
+    }
     
     // Calculate total expense
     const totalExpense = stats.reduce((sum, item) => sum + item.value, 0);
@@ -221,7 +234,7 @@ function renderSettlement(data) {
     // data: { total, perPerson, balances: [{id, name, paid, balance}] }
     elements.settlementContainer.innerHTML = '';
 
-    if (!data.balances || data.balances.length === 0) {
+    if (!data || !data.balances || data.balances.length === 0) {
         elements.settlementContainer.innerHTML = '<div class="text-center text-slate-500">No settlement data available.</div>';
         return;
     }
