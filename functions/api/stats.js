@@ -19,6 +19,10 @@ export async function onRequest(context) {
 
     return Response.json(stats.results || []);
   } catch (err) {
+    // If table doesn't exist, return empty data instead of crashing
+    if (String(err).includes("no such table")) {
+        return Response.json([]);
+    }
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
