@@ -9,11 +9,16 @@ export async function onRequest(context) {
   }
 
   // 1. Check for Cloudflare Access (Production)
-  // We check for the presence of the authenticated email header.
-  // This header is added by Cloudflare Access after successful login.
+  // We check for the presence of the authenticated email header AND verify it's an allowed user.
   const email = request.headers.get("Cf-Access-Authenticated-User-Email");
   if (email) {
-    return next();
+    const allowedEmails = DEFAULT_MEMBERS.map(m => m.email);
+    if (allowedEmails.includes(email)) {
+      return next();
+    } else {
+      // Authenticated by Cloudflare, but not authorized for this app
+      return new Response("Forbidden: User not authorized", { status: 403 });
+    }
   }
 
   // 2. Check for Local Development / Fallback
