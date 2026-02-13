@@ -47,10 +47,46 @@ export async function onRequest(context) {
       };
     });
 
+    // 4. Generate user-friendly message (Simplified for 2-person case usually)
+    // Find who owes money (negative balance) and who receives money (positive balance)
+    const debtors = balances.filter(b => b.balance < -0.01);
+    const creditors = balances.filter(b => b.balance > 0.01);
+
+    let messages = [];
+
+    // Simple greedy matching for settlement message
+    // Note: This is a basic algorithm sufficient for small groups (esp. 2 people)
+    let dIndex = 0;
+    let cIndex = 0;
+
+    // Clone to avoid mutating the original balances array used in response
+    const dList = debtors.map(d => ({ ...d }));
+    const cList = creditors.map(c => ({ ...c }));
+
+    while (dIndex < dList.length && cIndex < cList.length) {
+      const debtor = dList[dIndex];
+      const creditor = cList[cIndex];
+
+      const amountToSettle = Math.min(Math.abs(debtor.balance), creditor.balance);
+
+      messages.push(`${debtor.name} needs to pay ${creditor.name} ${amountToSettle.toFixed(2)}`);
+
+      debtor.balance += amountToSettle;
+      creditor.balance -= amountToSettle;
+
+      if (Math.abs(debtor.balance) < 0.01) dIndex++;
+      if (creditor.balance < 0.01) cIndex++;
+    }
+
+    if (messages.length === 0) {
+      messages.push("Settled up!");
+    }
+
     return Response.json({
         total: totalGroupSpend,
         perPerson: perPersonShare,
-        balances: balances
+        balances: balances,
+        message: messages.join(", ")
     });
 
   } catch (err) {
