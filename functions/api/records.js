@@ -55,18 +55,16 @@ export async function onRequest(context) {
       if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: "Invalid amount" }, { status: 400 });
       if (!payer_id) return Response.json({ error: "Missing payer_id" }, { status: 400 });
 
-      // Verify payer exists in group
-      const memberCheck = await env.DB.prepare(
-        "SELECT id FROM members WHERE id = ? AND group_id = ?"
-      ).bind(payer_id, group_id).first();
+      // Optimised: Verify and Insert in one go
+      const result = await env.DB.prepare(`
+        INSERT INTO records (record_id, type, category, description, amount, payer_id, group_id, date)
+        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8
+        WHERE EXISTS (SELECT 1 FROM members WHERE id = ?6 AND group_id = ?7)
+      `).bind(record_id, type, category, description, amount, payer_id, group_id, date).run();
 
-      if (!memberCheck) {
+      if (result.meta.changes === 0) {
          return Response.json({ error: "payer_id not found in group" }, { status: 400 });
       }
-      
-      await env.DB.prepare(
-        "INSERT INTO records (record_id, type, category, description, amount, payer_id, group_id, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-      ).bind(record_id, type, category, description, amount, payer_id, group_id, date).run();
       
       // Send Telegram notification if configured
       const msg = `New Record:\nType: ${type}\nCategory: ${category}\nDescription: ${description}\nAmount: ${amount}\nPayer: ${payer_id}\nDate: ${date}`;
