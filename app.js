@@ -297,18 +297,22 @@ async function handleAddRecord(event) {
         type: formData.get('type'),
         amount: parseFloat(formData.get('amount')),
         description: formData.get('description'),
-        category: 'General', // Default category for now as form doesn't have it
+        category: String(formData.get('category') || '').trim() || 'General',
         payer_id: formData.get('payer_id'),
         date: formData.get('date'),
         group_id: GROUP_ID
     };
 
-    // Auto-categorize based on description (Simple logic)
+    // Auto-categorize only when user chooses Auto Detect
     const desc = data.description.toLowerCase();
-    if (desc.includes('food') || desc.includes('lunch') || desc.includes('dinner')) data.category = 'Food';
-    else if (desc.includes('transport') || desc.includes('uber') || desc.includes('bus')) data.category = 'Transport';
-    else if (desc.includes('bill') || desc.includes('electric')) data.category = 'Utilities';
-    else if (desc.includes('shop') || desc.includes('buy')) data.category = 'Shopping';
+    if (!formData.get('category')) {
+        if (desc.includes('food') || desc.includes('lunch') || desc.includes('dinner')) data.category = 'Food';
+        else if (desc.includes('transport') || desc.includes('uber') || desc.includes('bus')) data.category = 'Transport';
+        else if (desc.includes('bill') || desc.includes('electric')) data.category = 'Utilities';
+        else if (desc.includes('shop') || desc.includes('buy')) data.category = 'Shopping';
+        else if (desc.includes('movie') || desc.includes('game') || desc.includes('netflix')) data.category = 'Entertainment';
+        else if (desc.includes('flight') || desc.includes('hotel') || desc.includes('trip')) data.category = 'Travel';
+    }
 
     try {
         const res = await fetch(`${API_BASE}/records`, {
