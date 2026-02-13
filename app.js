@@ -124,18 +124,16 @@ function renderRecords(records) {
         const amountClass = isExpense ? 'text-red-400' : 'text-green-400';
         const amountSign = isExpense ? '-' : '+';
 
-        const card = createSafeElement('div', 'glass-card p-4 rounded-xl flex justify-between items-center relative group');
+        const card = createSafeElement('div', 'glass-card record-card');
 
         // Left Side: Icon & Info
         const leftDiv = document.createElement('div');
-        leftDiv.className = 'flex items-center gap-3';
+        leftDiv.className = 'record-left';
 
         // Icon based on category (simple mapping)
         const iconContainer = document.createElement('div');
-        iconContainer.className = `w-10 h-10 rounded-full flex items-center justify-center ${isExpense ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`;
-        const icon = document.createElement('i');
-        icon.className = isExpense ? 'fas fa-shopping-bag' : 'fas fa-wallet'; // Default icons
-        iconContainer.appendChild(icon);
+        iconContainer.className = 'record-icon';
+        iconContainer.textContent = isExpense ? '🛍️' : '💳';
 
         const infoDiv = document.createElement('div');
         const descEl = createSafeElement('h4', 'font-bold text-white', r.description);
@@ -149,7 +147,7 @@ function renderRecords(records) {
 
         // Right Side: Amount & Delete
         const rightDiv = document.createElement('div');
-        rightDiv.className = 'text-right';
+        rightDiv.className = 'record-right';
 
         const amountEl = createSafeElement('p', `font-bold ${amountClass}`, `${amountSign}${formatCurrency(r.amount)}`);
         const categoryEl = createSafeElement('p', 'text-xs text-slate-500', r.category);
@@ -159,8 +157,8 @@ function renderRecords(records) {
 
         // Delete Button (absolute positioned, shows on hover/focus)
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'absolute top-2 right-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1';
-        deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = '🗑';
         deleteBtn.onclick = () => deleteRecord(r.record_id);
 
         card.appendChild(leftDiv);
@@ -193,9 +191,9 @@ function renderStats(stats) {
 
     // Color code progress bar
     if (percentage > 90) {
-        elements.budgetProgress.className = 'bg-red-500 h-2 rounded-full transition-all duration-500';
+        elements.budgetProgress.className = 'progress-bar progress-danger';
     } else {
-        elements.budgetProgress.className = 'bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-500';
+        elements.budgetProgress.className = 'progress-bar';
     }
 
     // Render Chart
@@ -240,12 +238,12 @@ function renderSettlement(data) {
     }
 
     data.balances.forEach(b => {
-        const card = createSafeElement('div', 'glass-card p-3 rounded-xl flex justify-between items-center');
+        const card = createSafeElement('div', 'glass-card settlement-card');
 
         // Member Info
         const leftDiv = document.createElement('div');
-        leftDiv.className = 'flex items-center gap-3';
-        const avatar = createSafeElement('div', 'w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white', b.name.charAt(0));
+        leftDiv.className = 'settlement-left';
+        const avatar = createSafeElement('div', 'avatar', b.name.charAt(0));
         const nameDiv = document.createElement('div');
         nameDiv.appendChild(createSafeElement('p', 'text-sm font-bold text-white', b.name));
         nameDiv.appendChild(createSafeElement('p', 'text-xs text-slate-400', `Paid: ${formatCurrency(b.paid)}`));
@@ -255,7 +253,7 @@ function renderSettlement(data) {
 
         // Balance Info
         const rightDiv = document.createElement('div');
-        rightDiv.className = 'text-right';
+        rightDiv.className = 'settlement-right';
 
         const isPositive = b.balance >= 0;
         const colorClass = isPositive ? 'text-green-400' : 'text-red-400';
@@ -297,18 +295,22 @@ async function handleAddRecord(event) {
         type: formData.get('type'),
         amount: parseFloat(formData.get('amount')),
         description: formData.get('description'),
-        category: 'General', // Default category for now as form doesn't have it
+        category: String(formData.get('category') || '').trim() || 'General',
         payer_id: formData.get('payer_id'),
         date: formData.get('date'),
         group_id: GROUP_ID
     };
 
-    // Auto-categorize based on description (Simple logic)
+    // Auto-categorize only when user chooses Auto Detect
     const desc = data.description.toLowerCase();
-    if (desc.includes('food') || desc.includes('lunch') || desc.includes('dinner')) data.category = 'Food';
-    else if (desc.includes('transport') || desc.includes('uber') || desc.includes('bus')) data.category = 'Transport';
-    else if (desc.includes('bill') || desc.includes('electric')) data.category = 'Utilities';
-    else if (desc.includes('shop') || desc.includes('buy')) data.category = 'Shopping';
+    if (!formData.get('category')) {
+        if (desc.includes('food') || desc.includes('lunch') || desc.includes('dinner')) data.category = 'Food';
+        else if (desc.includes('transport') || desc.includes('uber') || desc.includes('bus')) data.category = 'Transport';
+        else if (desc.includes('bill') || desc.includes('electric')) data.category = 'Utilities';
+        else if (desc.includes('shop') || desc.includes('buy')) data.category = 'Shopping';
+        else if (desc.includes('movie') || desc.includes('game') || desc.includes('netflix')) data.category = 'Entertainment';
+        else if (desc.includes('flight') || desc.includes('hotel') || desc.includes('trip')) data.category = 'Travel';
+    }
 
     try {
         const res = await fetch(`${API_BASE}/records`, {

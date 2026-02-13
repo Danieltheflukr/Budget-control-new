@@ -1,5 +1,53 @@
 import { sendTelegramNotification } from "../_utils.js";
 
+async function ensureCoreTables(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS records (
+      record_id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      description TEXT NOT NULL,
+      amount REAL NOT NULL,
+      payer_id TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      date TEXT NOT NULL
+    )
+  `).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS members (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      group_id TEXT NOT NULL
+    )
+  `).run();
+
+  await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Daniel', 'Daniel', 'group_default')").run();
+  await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Jacky', 'Jacky', 'group_default')").run();
+}
+
+async function migrateLegacyRecordsSchema(env) {
+  await ensureCoreTables(env);
+
+  const tableInfo = await env.DB.prepare("PRAGMA table_info(records)").all();
+  const columns = new Set((tableInfo.results || []).map((c) => c.name));
+
+  if (!columns.has("group_id")) {
+    await env.DB.prepare("ALTER TABLE records ADD COLUMN group_id TEXT").run();
+    await env.DB.prepare("UPDATE records SET group_id = 'group_default' WHERE group_id IS NULL OR TRIM(group_id) = ''").run();
+  }
+
+  if (!columns.has("payer_id")) {
+    await env.DB.prepare("ALTER TABLE records ADD COLUMN payer_id TEXT").run();
+
+    if (columns.has("member")) {
+      await env.DB.prepare("UPDATE records SET payer_id = member WHERE payer_id IS NULL OR TRIM(payer_id) = ''").run();
+    }
+
+    await env.DB.prepare("UPDATE records SET payer_id = 'Daniel' WHERE payer_id IS NULL OR TRIM(payer_id) = ''").run();
+  }
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -86,31 +134,11 @@ export async function onRequest(context) {
 
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   } catch (err) {
-    if (String(err).includes("no such table")) {
+    const errorText = String(err);
+
+    if (errorText.includes("no such table")) {
       try {
-        await env.DB.prepare(`
-          CREATE TABLE IF NOT EXISTS records (
-            record_id TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
-            category TEXT NOT NULL,
-            description TEXT NOT NULL,
-            amount REAL NOT NULL,
-            payer_id TEXT NOT NULL,
-            group_id TEXT NOT NULL,
-            date TEXT NOT NULL
-          )
-        `).run();
-
-        await env.DB.prepare(`
-          CREATE TABLE IF NOT EXISTS members (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            group_id TEXT NOT NULL
-          )
-        `).run();
-
-        await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Daniel', 'Daniel', 'group_default')").run();
-        await env.DB.prepare("INSERT OR IGNORE INTO members (id, name, group_id) VALUES ('Jacky', 'Jacky', 'group_default')").run();
+        await ensureCoreTables(env);
 
         // Retry the original operation if possible, but for simplicity, just return empty or error asking to retry
         return Response.json({ error: "Table created, please retry" }, { status: 503 });
@@ -118,6 +146,21 @@ export async function onRequest(context) {
         return Response.json({ error: "Schema init failed: " + e2.message }, { status: 500 });
       }
     }
+
+    if (
+      errorText.includes("no column named payer_id") ||
+      errorText.includes("no such column: r.payer_id") ||
+      errorText.includes("no such column: payer_id") ||
+      errorText.includes("no such column: group_id")
+    ) {
+      try {
+        await migrateLegacyRecordsSchema(env);
+        return Response.json({ error: "Schema updated, please retry" }, { status: 503 });
+      } catch (e2) {
+        return Response.json({ error: "Schema migration failed: " + e2.message }, { status: 500 });
+      }
+    }
+
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
