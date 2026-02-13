@@ -1,136 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DanJacky Collaborative Accounting</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <title>Budget-control | Daniel & Jacky</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .btn { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
-    <div class="max-w-md mx-auto p-4 pb-24">
-        <header class="flex justify-between items-center mb-6 pt-4">
-            <div>
-                <h1 class="text-2xl font-bold text-white tracking-tight">DanJacky</h1>
-                <p class="text-sm text-slate-400">Collaborative Accounting</p>
-            </div>
-            <div class="flex gap-3">
-                <button onclick="refreshData()" class="glass-btn p-2 rounded-full w-10 h-10 flex items-center justify-center">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-            </div>
-        </header>
+<body>
+    <h1>💰 財務總覽</h1>
+    <div id="summary" class="card">載入中...</div>
 
-        <section class="mb-6">
-            <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Expenses</p>
-                        <h2 class="text-3xl font-bold text-white mt-1" id="totalExpenseDisplay">$0.00</h2>
-                    </div>
-                    <div class="w-16 h-16">
-                        <canvas id="expenseChart"></canvas>
-                    </div>
-                </div>
+    <h2>📝 新增支出</h2>
+    <form id="recordForm" class="card">
+        描述: <input type="text" id="desc" required><br><br>
+        金額: <input type="number" id="amount" required><br><br>
+        支付者: 
+        <select id="payer">
+            <option value="Daniel">Daniel</option>
+            <option value="Jacky">Jacky</option>
+        </select><br><br>
+        Daniel 應負擔: <input type="number" id="d_share" value="0"><br>
+        Jacky 應負擔: <input type="number" id="j_share" value="0"><br><br>
+        <button type="submit" class="btn">提交支出</button>
+    </form>
 
-                <div class="mb-2">
-                    <div class="flex justify-between text-xs mb-1">
-                        <span class="text-slate-400">Monthly Budget</span>
-                        <span class="text-white font-medium" id="budgetDisplay">$30,000</span>
-                    </div>
-                    <div class="w-full bg-slate-800 rounded-full h-2">
-                        <div id="budgetProgress" class="bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
-                    </div>
-                    <p class="text-xs text-right mt-1 text-slate-500" id="budgetPercentage">0%</p>
-                </div>
-            </div>
-        </section>
+    <script>
+        // 自動獲取總覽
+        async function fetchSummary() {
+            const res = await fetch('/api/get-summary');
+            const data = await res.json();
+            document.getElementById('summary').innerText = 
+                `總儲蓄: $${data.savings.total}\n` +
+                `支出狀態: ${data.expenses.summary}`;
+        }
 
-        <section class="mb-6">
-            <h3 class="text-lg font-semibold text-white mb-3 flex items-center">
-                <i class="fas fa-hand-holding-usd mr-2 text-cyan-400"></i> Settlement
-            </h3>
-            <div id="settlementContainer" class="grid grid-cols-1 gap-3">
-                <div class="glass-card p-4 rounded-xl text-center text-slate-400 text-sm italic">
-                    Calculating balances...
-                </div>
-            </div>
-        </section>
+        // 提交表單邏輯
+        document.getElementById('recordForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                description: document.getElementById('desc').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                payer_id: document.getElementById('payer').value,
+                daniel_share: parseFloat(document.getElementById('d_share').value),
+                jacky_share: parseFloat(document.getElementById('j_share').value),
+                type: 'expense'
+            };
+            await fetch('/api/add-record', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            alert('紀錄成功！');
+            fetchSummary();
+        };
 
-        <section class="mb-6">
-            <h3 class="text-lg font-semibold text-white mb-3 flex items-center">
-                <i class="fas fa-receipt mr-2 text-cyan-400"></i> Spending Memo
-            </h3>
-            <div id="memoList" class="space-y-3">
-                </div>
-        </section>
-
-        <div class="fixed bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
-            <button onclick="openModal()" class="pointer-events-auto bg-gradient-to-r from-blue-600 to-cyan-500 text-white w-14 h-14 rounded-full shadow-lg shadow-blue-500/30 flex items-center justify-center transform transition-transform hover:scale-105 active:scale-95">
-                <i class="fas fa-plus text-xl"></i>
-            </button>
-        </div>
-
-        <div id="addRecordModal" class="fixed inset-0 z-[60] hidden">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
-            <div class="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-6" id="modalContent">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-xl font-bold text-white">New Record</h3>
-                    <button onclick="closeModal()" class="text-slate-400">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-
-                <form id="recordForm" onsubmit="handleAddRecord(event)">
-                    <div class="grid grid-cols-2 gap-3 mb-4">
-                        <label class="cursor-pointer">
-                            <input type="radio" name="type" value="支出" checked class="peer sr-only">
-                            <div class="p-3 text-center rounded-xl bg-slate-800 border border-slate-700 peer-checked:bg-red-500/20 peer-checked:border-red-500 peer-checked:text-red-400 transition-all">
-                                Expense (支出)
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="type" value="收入" class="peer sr-only">
-                            <div class="p-3 text-center rounded-xl bg-slate-800 border border-slate-700 peer-checked:bg-green-500/20 peer-checked:border-green-500 peer-checked:text-green-400 transition-all">
-                                Income (收入)
-                            </div>
-                        </label>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-xs text-slate-400 mb-1">Amount</label>
-                        <input type="number" name="amount" step="0.01" required placeholder="0.00" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-xs text-slate-400 mb-1">Memo / Description</label>
-                        <textarea name="description" required placeholder="What was this for?" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white h-20"></textarea>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3 mb-6">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Payer</label>
-                            <select name="payer_id" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
-                                <option value="Daniel">Daniel</option>
-                                <option value="Jacky">Jacky</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Date</label>
-                            <input type="date" name="date" required class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
-                        </div>
-                    </div>
-
-                    <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all">
-                        Save Record
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <script src="app.js"></script>
+        fetchSummary();
+    </script>
 </body>
 </html>
