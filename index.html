@@ -9,8 +9,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
-    <div class="max-w-md mx-auto p-4 pb-24">
+<body class="luxury-bg text-slate-100 font-sans min-h-screen">
+    <div class="max-w-md mx-auto p-4 pb-24 relative">
+        <div class="luxury-glow luxury-glow-top"></div>
+        <div class="luxury-glow luxury-glow-bottom"></div>
         <header class="flex justify-between items-center mb-6 pt-4">
             <div>
                 <h1 class="text-2xl font-bold text-white tracking-tight">DanJacky</h1>
@@ -24,7 +26,7 @@
         </header>
 
         <section class="mb-6">
-            <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+            <div class="glass-card luxury-card p-5 rounded-2xl relative overflow-hidden">
                 <div class="flex justify-between items-start mb-4">
                     <div>
                         <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Expenses</p>
@@ -53,7 +55,7 @@
                 <i class="fas fa-hand-holding-usd mr-2 text-cyan-400"></i> Settlement
             </h3>
             <div id="settlementContainer" class="grid grid-cols-1 gap-3">
-                <div class="glass-card p-4 rounded-xl text-center text-slate-400 text-sm italic">
+                <div class="glass-card luxury-card p-4 rounded-xl text-center text-slate-400 text-sm italic">
                     Calculating balances...
                 </div>
             </div>
@@ -68,14 +70,14 @@
         </section>
 
         <div class="fixed bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
-            <button onclick="openModal()" class="pointer-events-auto bg-gradient-to-r from-blue-600 to-cyan-500 text-white w-14 h-14 rounded-full shadow-lg shadow-blue-500/30 flex items-center justify-center transform transition-transform hover:scale-105 active:scale-95">
+            <button onclick="openModal()" class="pointer-events-auto luxury-fab text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center transform transition-transform hover:scale-105 active:scale-95">
                 <i class="fas fa-plus text-xl"></i>
             </button>
         </div>
 
         <div id="addRecordModal" class="fixed inset-0 z-[60] hidden">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
-            <div class="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-6" id="modalContent">
+            <div class="absolute bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-600 rounded-t-3xl p-6 glass-modal-content" id="modalContent">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-bold text-white">New Record</h3>
                     <button onclick="closeModal()" class="text-slate-400">
@@ -107,6 +109,20 @@
                     <div class="mb-4">
                         <label class="block text-xs text-slate-400 mb-1">Memo / Description</label>
                         <textarea name="description" required placeholder="What was this for?" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white h-20"></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-slate-400 mb-1">Category</label>
+                        <select name="category" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
+                            <option value="">Auto Detect</option>
+                            <option value="Food">Food</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Travel">Travel</option>
+                            <option value="General">General</option>
+                        </select>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3 mb-6">
