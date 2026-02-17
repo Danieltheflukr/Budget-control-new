@@ -1,23 +1,48 @@
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
-  
+
   try {
-    const data = await request.json();
-    const { payer_id, amount, description, target_name, date } = data;
+    if (!env?.DB) {
+      return jsonResponse({ error: "D1 Binding missing (DB)" }, 500);
+    }
+
+    let data;
+    try {
+      data = await request.json();
+    } catch {
+      return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+
+    const payer_id = String(data.payer_id || "").trim();
+    const amount = Number(data.amount);
+    const description = String(data.description || "").trim();
+    const target_name = String(data.target_name || "General Savings").trim() || "General Savings";
+    const date = String(data.date || new Date().toISOString().slice(0, 10)).trim();
+
+    if (!payer_id) {
+      return jsonResponse({ error: "Missing payer_id" }, 400);
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return jsonResponse({ error: "Invalid amount" }, 400);
+    }
 
     await env.DB.prepare(`
       INSERT INTO savings (date, payer_id, amount, description, target_name)
       VALUES (?, ?, ?, ?, ?)
-    `).bind(
-      date || new Date().toISOString(),
-      payer_id,
-      amount,
-      description,
-      target_name || 'General Savings'
-    ).run();
+    `)
+      .bind(date, payer_id, amount, description, target_name)
+      .run();
 
-    return new Response(JSON.stringify({ success: true }), { status: 201 });
+    return jsonResponse({ success: true }, 201);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return jsonResponse({ error: error.message }, 500);
   }
 }
