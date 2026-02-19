@@ -3,7 +3,7 @@ import { DEFAULT_MEMBERS } from '../config.js';
 const allowedIds = new Set(DEFAULT_MEMBERS.map(m => m.id));
 
 export async function onRequest(context) {
-  const { request, next, env } = context;
+  const { request, next } = context;
 
   // 1. 允許 OPTIONS (CORS 預檢) 直接通過
   if (request.method === "OPTIONS") {
