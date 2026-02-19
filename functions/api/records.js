@@ -10,7 +10,9 @@ async function ensureCoreTables(env) {
       amount REAL NOT NULL,
       payer_id TEXT NOT NULL,
       group_id TEXT NOT NULL,
-      date TEXT NOT NULL
+      date TEXT NOT NULL,
+      daniel_share REAL DEFAULT 0,
+      jacky_share REAL DEFAULT 0
     )
   `).run();
 
@@ -45,6 +47,14 @@ async function migrateLegacyRecordsSchema(env) {
     }
 
     await env.DB.prepare("UPDATE records SET payer_id = 'Daniel' WHERE payer_id IS NULL OR TRIM(payer_id) = ''").run();
+  }
+
+  if (!columns.has("daniel_share")) {
+    await env.DB.prepare("ALTER TABLE records ADD COLUMN daniel_share REAL DEFAULT 0").run();
+  }
+
+  if (!columns.has("jacky_share")) {
+    await env.DB.prepare("ALTER TABLE records ADD COLUMN jacky_share REAL DEFAULT 0").run();
   }
 }
 
@@ -151,7 +161,9 @@ export async function onRequest(context) {
       errorText.includes("no column named payer_id") ||
       errorText.includes("no such column: r.payer_id") ||
       errorText.includes("no such column: payer_id") ||
-      errorText.includes("no such column: group_id")
+      errorText.includes("no such column: group_id") ||
+      errorText.includes("no such column: daniel_share") ||
+      errorText.includes("no such column: jacky_share")
     ) {
       try {
         await migrateLegacyRecordsSchema(env);

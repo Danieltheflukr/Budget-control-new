@@ -1,29 +1,69 @@
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
-  
-  try {
-    const data = await request.json();
-    const { type, category, description, amount, payer_id, daniel_share, jacky_share, date } = data;
 
-    // 執行寫入 records 資料表
+  try {
+    let data;
+    try {
+      data = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, 400);
+    }
+
+    const type = String(data.type || '支出').trim();
+    const category = String(data.category || '').trim();
+    const description = String(data.description || '').trim();
+    const amount = Number(data.amount);
+    const payer_id = String(data.payer_id || '').trim();
+    const group_id = String(data.group_id || 'group_default').trim();
+    const daniel_share = Number(data.daniel_share || 0);
+    const jacky_share = Number(data.jacky_share || 0);
+    const date = String(data.date || new Date().toISOString().slice(0, 10)).trim();
+
+    if (!['支出', '收入'].includes(type)) {
+      return jsonResponse({ error: 'Invalid type' }, 400);
+    }
+
+    if (!category) {
+      return jsonResponse({ error: 'Missing category' }, 400);
+    }
+
+    if (!description) {
+      return jsonResponse({ error: 'Missing description' }, 400);
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return jsonResponse({ error: 'Invalid amount' }, 400);
+    }
+
+    if (!payer_id) {
+      return jsonResponse({ error: 'Missing payer_id' }, 400);
+    }
+
     await env.DB.prepare(`
       INSERT INTO records (record_id, type, category, description, amount, payer_id, group_id, date, daniel_share, jacky_share)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       crypto.randomUUID(),
-      type || 'expense',
+      type,
       category,
       description,
       amount,
-      payer_id, // 'Daniel' 或 'Jacky'
-      'group_default',
-      date || new Date().toISOString(),
-      daniel_share, // Daniel 應負擔金額
-      jacky_share   // Jacky 應負擔金額
+      payer_id,
+      group_id,
+      date,
+      Number.isFinite(daniel_share) ? daniel_share : 0,
+      Number.isFinite(jacky_share) ? jacky_share : 0
     ).run();
 
-    return new Response(JSON.stringify({ success: true }), { status: 201 });
+    return jsonResponse({ success: true }, 201);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return jsonResponse({ error: error.message }, 500);
   }
 }
