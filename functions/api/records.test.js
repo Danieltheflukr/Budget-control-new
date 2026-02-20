@@ -107,3 +107,40 @@ test('records API POST', async (t) => {
     assert.equal(date, '2026-02-19');
   });
 });
+
+test('records API DELETE', async (t) => {
+  await t.test('returns 400 when id is missing', async () => {
+    const mock = makeMockDB();
+    const request = new Request('https://example.com/api/records', {
+      method: 'DELETE'
+    });
+
+    const response = await onRequest({ request, env: { DB: mock.DB } });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'Missing id' });
+  });
+
+  await t.test('returns 200 when deletion is successful', async () => {
+    const mock = makeMockDB({ changes: 1 });
+    const request = new Request('https://example.com/api/records?id=123', {
+      method: 'DELETE'
+    });
+
+    const response = await onRequest({ request, env: { DB: mock.DB } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { success: true });
+    assert.match(mock.state.sql, /DELETE FROM records/);
+    assert.equal(mock.state.runCalls, 1);
+  });
+
+  await t.test('returns 404 when record is not found', async () => {
+    const mock = makeMockDB({ changes: 0 });
+    const request = new Request('https://example.com/api/records?id=999', {
+      method: 'DELETE'
+    });
+
+    const response = await onRequest({ request, env: { DB: mock.DB } });
+    assert.equal(response.status, 404, 'Should return 404 when record not found');
+    assert.deepEqual(await response.json(), { error: 'Record not found' });
+  });
+});
