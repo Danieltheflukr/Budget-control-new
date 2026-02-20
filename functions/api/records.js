@@ -135,9 +135,13 @@ export async function onRequest(context) {
       const id = url.searchParams.get("id");
       if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
 
-      await env.DB.prepare("DELETE FROM records WHERE record_id = ? AND group_id = ?")
+      const result = await env.DB.prepare("DELETE FROM records WHERE record_id = ? AND group_id = ?")
         .bind(id, groupId)
         .run();
+
+      if (result.meta.changes === 0) {
+        return Response.json({ error: "Record not found" }, { status: 404 });
+      }
 
       return Response.json({ success: true });
     }
