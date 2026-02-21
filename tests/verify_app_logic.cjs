@@ -1,18 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log("Running Integration Verification for app.js...\n");
+console.log("Running Integration Verification for app.js (Module Mode via Window)...\n");
 
-// 1. Setup Mocks
-const mockConsole = {
-    log: console.log,
-    error: console.error, // We expect errors for bad input
-    warn: console.warn
-};
+// 1. Setup Mock Environment
 
-// Mock DOM elements container
+// Mock DOM
 const mockElements = {};
-
 const document = {
     getElementById: (id) => {
         if (!mockElements[id]) {
@@ -31,28 +25,36 @@ const document = {
         }
         return mockElements[id];
     },
-    createElement: (tag) => ({
+    createElement: (tag) => {
+        if (tag === 'i') {
+             return { tagName: 'I', className: '' };
+        }
+        return {
         tagName: tag.toUpperCase(),
         className: '',
         appendChild: () => {},
         textContent: '',
         style: {},
         innerHTML: '',
-        classList: { add: () => {}, remove: () => {} }
+        classList: { add: () => {}, remove: () => {} },
+        addEventListener: () => {} // Mock for deleteBtn
+    }},
+    createDocumentFragment: () => ({
+        appendChild: () => {}
     }),
     addEventListener: (event, callback) => {
-        if (event === 'DOMContentLoaded') {
-            // Don't auto-run in test
-        }
+        // We manually trigger events if needed
     }
 };
 
+// Mock Global Objects
 global.document = document;
 global.window = {
     onclick: null,
     location: { reload: () => {} },
     confirm: () => true,
-    alert: (msg) => console.log("Alert:", msg)
+    alert: (msg) => console.log("Alert:", msg),
+    // Simulate other browser globals if needed
 };
 global.Chart = class { destroy() {} };
 global.FormData = class { get() { return ""; } };
@@ -65,28 +67,49 @@ global.fetch = async () => ({
     json: mockFetchResponse.json,
     statusText: 'OK'
 });
-global.Promise.allSettled = async (promises) => {
-    return Promise.all(promises).then(results => results.map(v => ({ status: 'fulfilled', value: v })));
-};
 
+// Mock Promise.allSettled (Correct Implementation)
+if (!Promise.allSettled) {
+    Promise.allSettled = (promises) =>
+        Promise.all(
+            promises.map((p) =>
+                Promise.resolve(p).then(
+                    (value) => ({
+                        status: "fulfilled",
+                        value,
+                    }),
+                    (reason) => ({
+                        status: "rejected",
+                        reason,
+                    })
+                )
+            )
+        );
+}
 
 // 2. Load app.js
 const appJsPath = path.join(__dirname, '../app.js');
 const appJsContent = fs.readFileSync(appJsPath, 'utf8');
 
-// We need to access internal functions like renderRecords.
-// Since app.js doesn't export them, and they are not all on window,
-// we will inject a small helper at the end of the content before eval,
-// or just rely on testing `refreshData` which is exposed.
-// Testing `refreshData` is better as it tests the full flow.
-
 // Execute app.js in global scope
-eval(appJsContent);
+try {
+    eval(appJsContent);
+} catch (e) {
+    console.error("Error evaluating app.js:", e);
+}
 
 // 3. Test Scenarios
 
 async function runTest() {
     console.log("--- Testing refreshData robustness ---");
+
+    // Check if function exists
+    if (typeof window.refreshData !== 'function') {
+        console.error("FATAL: window.refreshData is not defined. App.js failed to load or export.");
+        process.exit(1);
+    }
+
+    const app = window; // Use window as our app interface
 
     // Scenario 1: Success (Empty Arrays)
     console.log("Scenario: Normal Response (Empty)");
@@ -95,10 +118,11 @@ async function runTest() {
         json: async () => []
     };
     try {
-        await window.refreshData();
+        await app.refreshData();
         console.log("OK");
     } catch (e) {
         console.error("CRASHED:", e);
+        process.exit(1);
     }
 
     // Scenario 2: Success (Valid Records)
@@ -108,10 +132,11 @@ async function runTest() {
         json: async () => [{ record_id: '1', type: '支出', amount: 100, description: 'Test', date: '2023-01-01', payer_id: 'Dan' }]
     };
     try {
-        await window.refreshData();
+        await app.refreshData();
         console.log("OK");
     } catch (e) {
         console.error("CRASHED:", e);
+        process.exit(1);
     }
 
     // Scenario 3: API returns Object instead of Array (The Vulnerability)
@@ -121,7 +146,7 @@ async function runTest() {
         json: async () => ({ error: "Some unexpected object" })
     };
     try {
-        await window.refreshData();
+        await app.refreshData();
         console.log("OK (Handled gracefully if no crash)");
     } catch (e) {
         console.error("CRASHED:", e);
@@ -135,7 +160,7 @@ async function runTest() {
         json: async () => null
     };
     try {
-        await window.refreshData();
+        await app.refreshData();
         console.log("OK (Handled gracefully if no crash)");
     } catch (e) {
         console.error("CRASHED:", e);

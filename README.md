@@ -46,7 +46,7 @@ Create the database:
 npx wrangler d1 create monthly_expenses
 ```
 
-Update your `wrangler.toml` with the `database_id` returned by the creation command.
+Update your `wrangler.jsonc` with the `database_id` returned by the creation command.
 
 Initialize the database schema:
 ```bash
@@ -111,7 +111,7 @@ npm install
 npx wrangler d1 create monthly_expenses
 ```
 
-建立後，請將回傳的 `database_id` 更新至您的 `wrangler.toml` 檔案中。
+建立後，請將回傳的 `database_id` 更新至您的 `wrangler.jsonc` 檔案中。
 
 初始化資料庫結構：
 ```bash

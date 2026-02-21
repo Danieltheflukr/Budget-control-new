@@ -1,139 +1,201 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DanJacky Collaborative Accounting</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DanJacky Collaborative Accounting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for more premium feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
-<body>
-  <main class="page-shell">
-    <div class="backdrop-glow glow-a"></div>
-    <div class="backdrop-glow glow-b"></div>
+<body class="bg-slate-900 text-slate-200 min-h-screen pb-24 selection:bg-cyan-500/30">
 
-    <header class="panel header-panel">
-      <div>
-        <p class="eyebrow">Luxury Expense Board</p>
-        <h1>DanJacky</h1>
-        <p class="subtitle">Collaborative Accounting · 輕鬆記帳</p>
-      </div>
-      <button onclick="refreshData()" class="icon-btn" title="Refresh">↻</button>
-    </header>
-
-    <section class="panel summary-panel">
-      <div class="summary-top">
-        <div>
-          <p class="label">Total Expense · 本月支出</p>
-          <h2 id="totalExpenseDisplay">$0.00</h2>
-        </div>
-        <div class="chart-wrap">
-          <canvas id="expenseChart"></canvas>
-        </div>
-      </div>
-
-      <div class="budget-row">
-        <div class="budget-head">
-          <span>Monthly Budget · 預算</span>
-          <span id="budgetDisplay">$30,000</span>
-        </div>
-        <div class="progress-track">
-          <div id="budgetProgress" class="progress-bar" style="width:0%"></div>
-        </div>
-        <p id="budgetPercentage" class="budget-percent">0%</p>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h3>Settlement</h3>
-        <span>分帳</span>
-      </div>
-      <div id="settlementContainer" class="stack">
-        <div class="panel muted">Calculating balances...</div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h3>Spending Journal</h3>
-        <span>明細</span>
-      </div>
-      <div id="memoList" class="stack"></div>
-    </section>
-
-    <div class="fab-wrap">
-      <button onclick="openModal()" class="fab" title="Add Record">+</button>
+    <!-- Background Elements for depth -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div class="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full bg-blue-600/10 blur-[100px] animate-pulse"></div>
+        <div class="absolute top-[40%] -right-[10%] w-[60%] h-[60%] rounded-full bg-cyan-600/10 blur-[100px] animate-pulse" style="animation-delay: 2s"></div>
     </div>
-  </main>
 
-  <div id="addRecordModal" class="modal hidden">
-    <div class="modal-overlay" onclick="closeModal()"></div>
-    <div class="modal-card" id="modalContent">
-      <div class="modal-head">
-        <div>
-          <h3>Add New Record</h3>
-          <p>新增紀錄 · quick input</p>
+    <div class="max-w-md mx-auto p-5 relative z-10">
+
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8 pt-6">
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight drop-shadow-lg">
+                    DanJacky
+                    <span class="text-cyan-400">.</span>
+                </h1>
+                <p class="text-xs font-medium text-slate-400 tracking-wide uppercase mt-1">Collaborative Accounting</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="refreshData()" class="glass-btn w-10 h-10 flex items-center justify-center rounded-xl text-slate-300 hover:text-white transition-colors" aria-label="Refresh Data">
+                    <i class="fas fa-sync-alt text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Card -->
+        <section class="mb-8">
+            <div class="glass-card p-6 relative overflow-hidden group">
+                <!-- Subtle internal glow -->
+                <div class="absolute -inset-1 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
+
+                <div class="relative flex justify-between items-start mb-6">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Expenses</p>
+                        <h2 class="text-4xl font-bold text-white tracking-tight" id="totalExpenseDisplay">$0.00</h2>
+                    </div>
+                    <div class="w-16 h-16 relative">
+                        <canvas id="expenseChart"></canvas>
+                        <!-- Center text in donut -->
+                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span class="text-[8px] text-slate-500 font-bold">MTH</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <div class="flex justify-between text-xs mb-2">
+                        <span class="text-slate-400 font-medium">Monthly Budget</span>
+                        <span class="text-white font-bold" id="budgetDisplay">$30,000</span>
+                    </div>
+                    <div class="w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                        <div id="budgetProgress" class="bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(6,182,212,0.5)]" style="width: 0%"></div>
+                    </div>
+                    <p class="text-[10px] text-right mt-1.5 text-slate-500 font-medium" id="budgetPercentage">0% Used</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settlement Section -->
+        <section class="mb-8">
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <i class="fas fa-hand-holding-usd text-cyan-400"></i> Settlement
+            </h3>
+            <div id="settlementContainer" class="grid grid-cols-1 gap-3">
+                <div class="glass-card p-4 rounded-xl text-center">
+                     <div class="loader mx-auto mb-2"></div>
+                     <p class="text-xs text-slate-500 font-medium">Calculating balances...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Transactions List -->
+        <section class="mb-8">
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <i class="fas fa-receipt text-cyan-400"></i> Recent Activity
+            </h3>
+            <div id="memoList" class="space-y-3 pb-4">
+                <!-- Skeleton Loader -->
+                 <div class="glass-card p-4 h-20 animate-pulse bg-slate-800/30"></div>
+                 <div class="glass-card p-4 h-20 animate-pulse bg-slate-800/30 delay-75"></div>
+                 <div class="glass-card p-4 h-20 animate-pulse bg-slate-800/30 delay-150"></div>
+            </div>
+        </section>
+
+        <!-- Floating Action Button -->
+        <div class="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
+            <button onclick="openModal()" class="pointer-events-auto group relative w-16 h-16 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-400 text-white shadow-lg shadow-cyan-500/40 flex items-center justify-center transform transition-all duration-300 hover:scale-110 hover:rotate-90 active:scale-95">
+                 <div class="absolute inset-0 rounded-full bg-white/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <i class="fas fa-plus text-2xl drop-shadow-md"></i>
+            </button>
         </div>
-        <button onclick="closeModal()" class="close-btn">✕</button>
-      </div>
 
-      <form id="recordForm" onsubmit="handleAddRecord(event)">
-        <div class="type-grid">
-          <label>
-            <input type="radio" name="type" value="支出" checked />
-            <span>Expense 支出</span>
-          </label>
-          <label>
-            <input type="radio" name="type" value="收入" />
-            <span>Income 收入</span>
-          </label>
+        <!-- Add Record Modal -->
+        <div id="addRecordModal" class="fixed inset-0 z-[60] hidden transition-opacity duration-300">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closeModal()"></div>
+
+            <div class="absolute bottom-0 left-0 right-0 glass-modal-content p-6 pb-10 modal-enter max-w-md mx-auto" id="modalContent">
+                <!-- Drag Handle -->
+                <div class="w-12 h-1 bg-slate-700/50 rounded-full mx-auto mb-6"></div>
+
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-white tracking-tight">New Transaction</h3>
+                    <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+
+                <form id="recordForm" onsubmit="handleAddRecord(event)" class="space-y-5">
+
+                    <!-- Type Selector -->
+                    <div class="grid grid-cols-2 gap-4 p-1 bg-slate-900/50 rounded-2xl border border-slate-800/50">
+                        <label class="cursor-pointer relative">
+                            <input type="radio" name="type" value="支出" checked class="peer sr-only">
+                            <div class="py-3 text-center rounded-xl text-sm font-bold text-slate-400 transition-all peer-checked:bg-slate-800 peer-checked:text-red-400 peer-checked:shadow-sm">
+                                Expense
+                            </div>
+                        </label>
+                        <label class="cursor-pointer relative">
+                            <input type="radio" name="type" value="收入" class="peer sr-only">
+                            <div class="py-3 text-center rounded-xl text-sm font-bold text-slate-400 transition-all peer-checked:bg-slate-800 peer-checked:text-green-400 peer-checked:shadow-sm">
+                                Income
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Amount & Category Row -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Amount</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
+                                <input type="number" name="amount" step="0.01" required placeholder="0.00"
+                                    class="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3.5 pl-7 pr-3 text-white font-bold placeholder-slate-600 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all">
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Category</label>
+                            <select name="category" class="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3.5 px-3 text-white font-medium focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all appearance-none">
+                                <option value="Food">🍔 Food</option>
+                                <option value="Transport">🚕 Transport</option>
+                                <option value="Utilities">💡 Utilities</option>
+                                <option value="Entertainment">🎬 Entertainment</option>
+                                <option value="Shopping">🛍️ Shopping</option>
+                                <option value="Other">📦 Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="space-y-1.5">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Description</label>
+                        <textarea name="description" required placeholder="e.g. Lunch at Mcdonalds"
+                            class="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-3 text-white font-medium placeholder-slate-600 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all h-24 resize-none"></textarea>
+                    </div>
+
+                    <!-- Payer & Date -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Paid By</label>
+                            <select name="payer_id" class="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3.5 px-3 text-white font-medium focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all">
+                                <option value="Daniel">Daniel</option>
+                                <option value="Jacky">Jacky</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
+                            <input type="date" name="date" required
+                                class="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3.5 px-3 text-white font-medium focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="w-full mt-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-cyan-900/20 transform transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                        <span>Save Transaction</span>
+                        <i class="fas fa-arrow-right text-sm"></i>
+                    </button>
+                </form>
+            </div>
         </div>
-
-        <label class="field">
-          <span>Amount 金額</span>
-          <input type="number" name="amount" step="0.01" required placeholder="0.00" />
-        </label>
-
-        <label class="field">
-          <span>Memo / Description 備註</span>
-          <textarea name="description" required placeholder="What was this for?"></textarea>
-        </label>
-
-        <label class="field">
-          <span>Category 類別</span>
-          <select name="category">
-            <option value="">Auto Detect 自動判斷</option>
-            <option value="Food">Food</option>
-            <option value="Transport">Transport</option>
-            <option value="Utilities">Utilities</option>
-            <option value="Shopping">Shopping</option>
-            <option value="Entertainment">Entertainment</option>
-            <option value="Travel">Travel</option>
-            <option value="General">General</option>
-          </select>
-        </label>
-
-        <div class="two-col">
-          <label class="field">
-            <span>Payer 付款人</span>
-            <select name="payer_id">
-              <option value="Daniel">Daniel</option>
-              <option value="Jacky">Jacky</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Date 日期</span>
-            <input type="date" name="date" required />
-          </label>
-        </div>
-
-        <button type="submit" class="save-btn">Save Record 儲存</button>
-      </form>
     </div>
-  </div>
 
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
