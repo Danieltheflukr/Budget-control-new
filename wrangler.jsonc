@@ -10,8 +10,10 @@
       "database_id": "a82ceab8-cd97-41ea-91d6-736ed66e68e7"
     }
   ],
-  "vars": {
-    "TELEGRAM_BOT_TOKEN": "7223017013:AAG4nup2zvcjS0GE-plBiand5U6J_pdeeH0",
-    "TELEGRAM_CHAT_ID": "@Danthenewbot"
-  }
+  "kv_namespaces": [
+    {
+      "binding": "BUDGET_KV",
+      "id": "b6a2270c2a9c4d729540b83aee095425"
+    }
+  ]
 }

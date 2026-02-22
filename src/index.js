@@ -18,17 +18,17 @@ export default {
     // 安全驗證：檢查 Authorization Header
     const authHeader = request.headers.get("Authorization");
     if (authHeader !== `Bearer ${env.API_AUTH_KEY}`) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
     // API 路由：取得所有紀錄
     if (url.pathname === "/api/records" && request.method === "GET") {
       const data = await KV.get("records");
-      return new Response(data || "[]", { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      return new Response(data || "[]", {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
@@ -41,11 +41,11 @@ export default {
         // 為新紀錄加上時間戳記 ID
         const recordWithId = { ...newRecord, record_id: Date.now().toString() };
         currentData.push(recordWithId);
-        
+
         await KV.put("records", JSON.stringify(currentData));
-        
-        return new Response(JSON.stringify({ success: true, record: recordWithId }), { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+
+        return new Response(JSON.stringify({ success: true, record: recordWithId }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: corsHeaders });
