@@ -1,5 +1,6 @@
 {
-  "name": "cf-page",
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "danjacky-collaborative-accounting",
   "compatibility_date": "2024-04-01",
   "pages_build_output_dir": ".",
   "d1_databases": [
@@ -7,6 +8,12 @@
       "binding": "DB",
       "database_name": "monthly_expenses",
       "database_id": "a82ceab8-cd97-41ea-91d6-736ed66e68e7"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "BUDGET_KV",
+      "id": "b6a2270c2a9c4d729540b83aee095425"
     }
   ]
 }
