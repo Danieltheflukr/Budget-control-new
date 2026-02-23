@@ -12,6 +12,6 @@
   ],
   "vars": {
     "TELEGRAM_BOT_TOKEN": "7223017013:AAG4nup2zvcjS0GE-plBiand5U6J_pdeeH0",
-    "TELEGRAM_CHAT_ID": "@Danthenewbot"
+    "TELEGRAM_CHAT_ID": "7223017013"
   }
 }
